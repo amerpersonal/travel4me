@@ -1,0 +1,29 @@
+@()(implicit flash: Flash, request: Request[Any])
+
+@main("Welcome to Play") {
+    <div class="signin-container">
+        @helper.form(action = routes.LoginController.login, 'class -> "form-horizontal big-form signin-form", 'id -> "login") {
+            <h2 class="form-signin-heading">Please sign in</h2>
+            <label for="email" class="sr-only">Email address</label>
+            <input id="email" name="email" class="form-control" placeholder="Email address" required="" autofocus="" type="email">
+            <label for="password" class="sr-only">Password</label>
+            <input id="password" name="password" class="form-control" placeholder="Password" required="" type="password">
+            <div class="checkbox">
+                <label>
+                    <input value="remember-me" type="checkbox"> Remember me
+                </label>
+            </div>
+            <button class="btn btn-lg btn-primary btn-block" type="submit">Sign in</button>
+
+            @{
+                flash.get("error") match {
+                    case Some(err) => <div class="alert alert-danger">{ err }</div>
+                    case None => {}
+                }
+            }
+
+            <a href="@routes.LoginController.signup">Don't have account? Registrate</a>
+        }
+    </>
+
+}

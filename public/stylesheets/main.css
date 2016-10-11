@@ -1,0 +1,20 @@
+signin-container {
+    align: center;
+    margin: 0 auto;
+}
+
+.big-form {
+    margin: 80px auto;
+}
+
+.signin-form {
+    width: 320px;
+}
+
+.signup-form {
+    width: 360px;
+}
+
+.big-form input, .big-form button {
+    margin-bottom: 10px;
+}
