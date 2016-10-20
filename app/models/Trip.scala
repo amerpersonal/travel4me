@@ -1,17 +1,24 @@
 package models
 import java.util.UUID
 
-import com.sksamuel.elastic4s.{HitAs, RichSearchHit}
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s._
+import org.elasticsearch.search.sort.SortOrder
+import play.Play
 import play.api.libs.json._
+
+import scala.util.Try
 /**
   * Created by amer.zildzic on 9/21/16.
   */
 
-import play.api.data.Forms._
-import play.api.data.Form
+import scala.concurrent.Future
 import play.api.libs.functional.syntax._
 import play.api.data.validation.ValidationError
 import scala.util.matching.Regex
+import scala.collection.JavaConverters._
+
+import services.Search
 
 case class Trip(var id: Option[String] = None,
                 val title: String,
@@ -33,7 +40,31 @@ case class Trip(var id: Option[String] = None,
   }
 }
 
-object Trip {
+object Trip extends Search {
+  implicit val exec = scala.concurrent.ExecutionContext.global
+  val default_image = play.api.Play.current.configuration.underlying.getString("general.default_img_path") + "/" +
+                      play.api.Play.current.configuration.underlying.getString("general.default_img")
+
+  implicit object TripHitAs extends HitAs[Trip] {
+    override def as(hit: RichSearchHit): Trip = {
+      val source = hit.getSource
+
+      val user_id: Option[String] = source.get("user_id") match {
+        case Some(value) => Some(value.toString)
+        case _ => None
+      }
+      val labels = source.get("labels") match {
+        case Some(labels) => labels.asInstanceOf[java.util.ArrayList[String]].asScala.toList
+        case _ => List()
+      }
+      val stored_images = source.get("image_collection")
+      val images: List[String] = if(stored_images == null) List(default_image) else stored_images.asInstanceOf[java.util.ArrayList[String]].asScala.toList
+
+      Trip(Some(hit.getId), source.get("title").toString, source.get("description").toString,
+        source.get("public").asInstanceOf[Boolean], user_id, Some(labels), Some(images))
+    }
+  }
+
   def notEmpty(implicit r:Reads[String]):Reads[String] = Reads.filterNot(ValidationError("validate.error.unexpected.value", ""))(_.trim().eq(""))
 
   implicit val tripReader: Reads[Trip] = {
@@ -57,6 +88,14 @@ object Trip {
         (JsPath \ "labels").write[Option[List[String]]] and
         (JsPath \ "image_collection").write[Option[List[String]]]
     )(unlift(Trip.unapply))
+
+  def browse(client: ElasticClient, options: Map[String, Object]): Future[List[Trip]] = {
+    client.execute {
+      val default_queries = List(must(existsQuery("title")))
+      prepare_search(options, default_queries)
+    }.map(r => r.as[Trip].toList)
+  }
+
 }
 
 

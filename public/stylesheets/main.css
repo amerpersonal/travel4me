@@ -18,3 +18,7 @@ signin-container {
 .big-form input, .big-form button {
     margin-bottom: 10px;
 }
+
+.trip img {
+    max-height: 120px;
+}

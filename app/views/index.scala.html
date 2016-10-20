@@ -2,7 +2,7 @@
  * This template takes a single argument, a String containing a
  * message to display.
  *@
-@(logged_in_user: User = null)(implicit messages: Messages, request: Request[Any])
+@(trips: List[Trip], logged_in_user: User = null)(implicit messages: Messages, request: Request[Any])
 
 @*
  * Call the `main` template with two arguments. The first
@@ -16,12 +16,19 @@
      * template and passing a `String` message.
      *@
 
-    <div class="row-fluid">
+    <div class="row">
         <div class="col-md-4">
             @partial.add_trip(logged_in_user)
         </div>
-        <div class="col-lg-8">
-            Trips
+        <div class="col-md-8">
+
+                @trips.grouped(3).map { group =>
+                    <div class="row">
+                        @group.map { trip: Trip => @partial.trip(trip) }
+                    </div>
+                }
+
+
         </div>
     </div>
 

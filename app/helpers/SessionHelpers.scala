@@ -18,10 +18,7 @@ object SessionHelpers {
 
   def hasSession(request: Request[Any]) : Boolean = {
     val usr = if(sessionExpired(request)) None else request.session.get("current_user")
-    usr match {
-      case Some(value) => true
-      case None => false
-    }
+    usr != None
   }
 
   def loggedInUser(request: Request[Any]) : User = {
@@ -29,7 +26,7 @@ object SessionHelpers {
     usr match {
       case Some(value) => {
         val usr_map: Map[String, String] = JsonMethods.parse(value).extract[Map[String, String]]
-        User(usr_map.get("id"), usr_map("email"), usr_map("password"), usr_map("password"), Some(usr_map("salt")))
+        User(usr_map.get("id"), usr_map("email"), usr_map("password"), usr_map("password")).set_salt(usr_map("salt"))
       }
       case None => null
     }
@@ -40,11 +37,13 @@ object SessionHelpers {
     usr match {
       case Some(value) => {
         val usr_map: Map[String, String] = JsonMethods.parse(value).extract[Map[String, String]]
-        val usr = User(usr_map.get("id"), usr_map("email"), usr_map("password"), usr_map("password"), Some(usr_map("salt")))
+        val usr = User(usr_map.get("id"), usr_map("email"), usr_map("password"), usr_map("password")).set_salt(usr_map("salt"))
         val ts = if(default_ts == 0) DateTime.now().getMillis().toString() else default_ts.toString()
         usr.salt match {
-          case Some(salt) => BCrypt.hashpw(usr.password + ":" + ts, salt) + ":" + ts
-          case None => null
+          case salt:String => {
+            BCrypt.hashpw(usr.password + ":" + ts, salt) + ":" + ts
+          }
+          case _ => null
         }
       }
       case None => null

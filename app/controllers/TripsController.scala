@@ -78,6 +78,7 @@ class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
                 case None => None
               }),
               "created_timestamp" -> DateTime.now.toString("yyyy-mm-dd HH:mm:ss Z"),
+              "updated_timestamp" -> DateTime.now.toString("yyyy-mm-dd HH:mm:ss Z"),
               "user_id" -> (currentUser(request) match {
                 case user: User => user.id.get
                 case null => null
@@ -85,7 +86,7 @@ class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
               "public" -> (currentUser(request) == null || trip.public)
               )
           }.onComplete {
-            case Success(res) => p.success(Ok(JsObject(List(("id", JsString(res.getId))))))
+            case Success(res) => p.success(Redirect("/"))//p.success(Ok(JsObject(List(("id", JsString(res.getId))))))
             case Failure(ex) => p.success(InternalServerError("Error. Try again later"))
           }
 
@@ -109,13 +110,13 @@ class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
 
   def upload(id: String) = Action.async { implicit request =>
     request.body.asMultipartFormData.get.file("image").map { picture =>
-      val filename = picture.filename
-      var filepath = Play.application().path() + s"/public/images/$id" + "_" + filename
+      val filename = id + "_" + picture.filename
+      var filepath = Play.application().path() + s"/public/images/" + filename
       System.out.println(s"Saving image to path $filepath")
       picture.ref.moveTo(new File(filepath))
       client.execute {
         update id id in "trips/trip" script {
-          script("!ctx._source.containsKey(\"image_collection\") ? (ctx._source.image_collection = [fn]) : (ctx._source.image_collection.push(fn))").params("fn" -> filename)
+          script("!ctx._source.containsKey(\"image_collection\") ? (ctx._source.image_collection = [fn]) : (ctx._source.image_collection.push(fn))").params("fn" -> s"assets/images/$filename")
         }
 
       }.map(r => Ok(Json.obj("filename" -> filename, "id" -> r.getId)))
@@ -143,50 +144,9 @@ class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
       case _ => Map.empty
     }
 
-
-    System.out.println(query_body)
     try {
-      client.execute {
-        var sr = search in "trips/trip"
-
-        val filters: Map[String, String] = query_body.get("filter") match {
-          case Some(vals) => vals.asInstanceOf[Map[String, String]]
-          case None => Map.empty[String, String]
-        }
-
-        val queries: List[QueryDefinition] = query_body.get("search") match {
-          case Some(vals) => vals.asInstanceOf[Map[String, String]].toList.map(kv =>
-            filters.get(kv._1) match {
-              case Some(value) => List(termQuery(kv._1, value))
-              case None => List(prefixQuery(kv._1 + ".analyzed", kv._2), prefixQuery(kv._1 + ".ngram", kv._2), termQuery(kv._1,kv._2))
-            }
-          ).flatten
-          case _ => List(matchAllQuery)
-        }
-
-        val sorts: List[SortDefinition] = query_body.get("sort") match {
-          case Some(vals) => vals.asInstanceOf[Map[String, String]].toList.map(kv => fieldSort(kv._1).order(if(kv._2 == "desc") SortOrder.DESC else SortOrder.ASC))
-          case None => List.empty
-        }
-
-        sr.query(should(queries))
-        sr.sort(sorts: _*)
-
-        query_body.get("size") match {
-          case Some(JsNumber(size)) => sr.size(size.intValue())
-          case None => {}
-        }
-
-        query_body.get("from") match {
-          case Some(JsNumber(from)) => sr.from(from.intValue())
-          case None => {}
-        }
-        System.out.println(sr.toString())
-        sr
-      }.map { res =>
-        val trips = res.as[Trip]
-        Ok(Json.toJson(trips))
-      }
+      val trips: Future[List[Trip]] = Trip.browse(client, query_body)
+      trips.map { r => Ok(Json.toJson(r))}
     }
     catch {
       case ex : Throwable => {

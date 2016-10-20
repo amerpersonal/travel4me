@@ -29,7 +29,7 @@ import scala.util.Try
 class LoginController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(implicit exec: ExecutionContext) extends ApplicationController {
   private lazy val client = ef(cs)
 
-  implicit object TripHitAs extends HitAs[Login] {
+  implicit object HitAs extends HitAs[Login] {
     override def as(hit: RichSearchHit): Login = {
       val source = hit.getSource
 
@@ -37,11 +37,11 @@ class LoginController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
     }
   }
 
-  implicit object TripHitAsUser extends HitAs[User] {
+  implicit object HitAsUser extends HitAs[User] {
     override def as(hit: RichSearchHit): User = {
       val source = hit.getSource
 
-      User(Some(hit.id), source.get("email").toString, source.get("password").toString, source.get("password").toString, Some(source.get("salt").toString))
+      User(Some(hit.id), source.get("email").toString, source.get("password").toString, source.get("password").toString).set_salt(source.get("salt").toString)
     }
   }
 
@@ -51,7 +51,7 @@ class LoginController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
     case userData => Login.validate(userData.email, userData.password).isDefined
   }))
 
-  val signupForm = Form(play.api.data.Forms.mapping("id" -> optional(text), "email" -> nonEmptyText, "password" -> nonEmptyText, "password_confirmation" -> nonEmptyText, "salt" -> optional(text))
+  val signupForm = Form(play.api.data.Forms.mapping("id" -> optional(text), "email" -> nonEmptyText, "password" -> nonEmptyText, "password_confirmation" -> nonEmptyText)
   (User.apply)(User.unapply).verifying("Failed form constraints!", user => user match {
     case userData => User.validate(None, userData.email, userData.password, userData.password_confirmation).isDefined
   }))
@@ -74,13 +74,9 @@ class LoginController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
               val response = if (res.getHits.totalHits > 0) {
                 val user = res.as[User].head
 
-                user.salt match {
-                  case Some(salt) => {
-                    if(BCrypt.hashpw(login.password, salt) == user.password) Redirect("/").withSession("current_user" -> Json.toJson(user).toString, "started" -> DateTime.now.getMillis.toString)
-                    else Redirect("/signin").flashing("error" -> "Wrong email or password")
-                  }
-                  case None => Redirect("/signin").flashing("error" -> "Wrong email or password")
-                }
+                if(BCrypt.hashpw(login.password, user.salt) == user.password) Redirect("/").withSession("current_user" -> user.serialize, "started" -> DateTime.now.getMillis.toString)
+                else Redirect("/signin").flashing("error" -> "Wrong email or password")
+
               }
               else Redirect("/signin").flashing("error" -> "Wrong email or password")
               p.success(response)
@@ -105,8 +101,7 @@ class LoginController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
     signupForm.bindFromRequest().fold(
       formWithErrors => Future { Redirect("/signup").flashing("error" -> "Email must be valid, password must have 8 chars min and password must match password confirmation") },
       user => {
-        val salt = BCrypt.gensalt()
-        val hashed_password = BCrypt.hashpw(user.password, salt)
+        val hashed_password = BCrypt.hashpw(user.password, user.salt)
         try {
           val p = Promise[Result]()
           client.execute {
@@ -119,13 +114,13 @@ class LoginController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
                   index into "users/user" id UUID.randomUUID() fields(
                     "email" -> user.email,
                     "password" -> hashed_password,
-                    "salt" -> salt,
+                    "salt" -> user.salt,
                     "created_timestamp" -> DateTime.now.toString("yyyy-mm-dd HH:mm:ss Z")
                     )
                 }.onComplete {
                   case Success(res) => {
-                    val usr_json = Json.toJson(user).toString()
-                    p.success(Redirect("/").withSession("current_user" -> usr_json.toString, "started" -> DateTime.now.getMillis.toString))
+//                    val usr_json = Json.toJson(user).toString()
+                    p.success(Redirect("/").withSession("current_user" -> user.serialize, "started" -> DateTime.now.getMillis.toString))
                   }
                   case Failure(ex) => p.success(Redirect("/signup").flashing("error" -> "Error. Try again later"))
 

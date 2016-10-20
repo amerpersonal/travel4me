@@ -1,0 +1,11 @@
+@(trip: Trip, logged_in_user: User = null)(implicit messages: Messages)
+
+<div class="col-md-4 trip">
+    <div class="thumbnail">
+        <a href="#"><img src="@trip.image_collection.get.head" /></a>
+        <div class="caption">
+            <a href="#"><h4>@trip.title</h4></a>
+            <p>@trip.description</p>
+        </div>
+    </div>
+</div>
