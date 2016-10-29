@@ -17,9 +17,13 @@ GET     /assets/*file               controllers.Assets.versioned(path="/public",
 POST    /trips                      controllers.TripsController.create
 POST    /trips/:id/upload           controllers.TripsController.upload(id: String)
 POST    /trips/browse               controllers.TripsController.browse
+POST    /trips/remove/:id           controllers.TripsController.remove(id: String)
+GET     /trips/my                   controllers.TripsController.my(id: String = "")
+GET     /trips/my/:id               controllers.TripsController.my(id: String)
+POST    /trips/:id                  controllers.TripsController.change(id: String)
 
-GET /signin                         controllers.LoginController.signin
-POST /login                         controllers.LoginController.login
-GET /signup                         controllers.LoginController.signup
-POST /registrate                    controllers.LoginController.registrate
-GET /logout                        controllers.LoginController.logout
+GET     /signin                     controllers.LoginController.signin
+POST    /login                      controllers.LoginController.login
+GET     /signup                     controllers.LoginController.signup
+POST    /registrate                 controllers.LoginController.registrate
+GET     /logout                     controllers.LoginController.logout

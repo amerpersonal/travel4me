@@ -3,6 +3,7 @@
  * message to display.
  *@
 @(trips: List[Trip], logged_in_user: User = null)(implicit messages: Messages, request: Request[Any])
+@new_trip = @{ Trip(None, "", "", true, None, None, None, org.joda.time.DateTime.now) }
 
 @*
  * Call the `main` template with two arguments. The first
@@ -18,17 +19,14 @@
 
     <div class="row">
         <div class="col-md-4">
-            @partial.add_trip(logged_in_user)
+            @partial.add_trip(new_trip, logged_in_user)
         </div>
-        <div class="col-md-8">
+        <div class="col-md-8" id="trips">
+            <div class="row">
 
-                @trips.grouped(3).map { group =>
-                    <div class="row">
-                        @group.map { trip: Trip => @partial.trip(trip) }
-                    </div>
-                }
+                @trips.map { trip => @partial.trip(trip, logged_in_user) }
 
-
+            </div>
         </div>
     </div>
 

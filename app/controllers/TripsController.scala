@@ -30,8 +30,69 @@ import org.elasticsearch.search.sort.SortOrder
 
 import scala.util.parsing.json.JSONObject
 
+import helpers._
 
 class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(implicit exec: ExecutionContext) extends ApplicationController {
+
+//  val tripForm = Form(play.api.data.Forms.mapping("id" -> optional(text), "title" -> nonEmptyText, "description" -> nonEmptyText,
+//    "type" -> optional(Boolean))
+
+
+  case class AuthRestricted[T](action: Action[T]) extends Action[T] {
+    def apply(request: Request[T]): Future[Result] = {
+      if(SessionHelpers.hasSession(request)) action(request)
+      else Future { Redirect(routes.LoginController.signin()) }
+    }
+
+    lazy val parser = action.parser
+  }
+
+  object AuthRestrictedAction extends ActionBuilder[Request] {
+    def invokeBlock[T](request: Request[T], block: (Request[T] => Future[Result])): Future[Result] = {
+      block(request)
+    }
+
+    override def composeAction[A](action: Action[A]): Action[A] = new AuthRestricted(action)
+  }
+
+  case class OwnerRestricted[T](action: Action[T]) extends Action[T] {
+    def apply(request: Request[T]): Future[Result] = {
+      val logged_in_user: User = helpers.SessionHelpers.loggedInUser(request)
+      System.out.println("owner rest")
+      if(logged_in_user != null){
+        val p = Promise[Result]
+
+        val id = request.path.split("/").last
+        System.out.println(s"=== id: $id")
+        client.execute {
+          get id id from "trips/trip" fields "user_id"
+        }.onComplete {
+          case Success(res) => {
+            if(res.isExists && res.field("user_id").getValue.toString == logged_in_user.id.get) {
+              action(request).onComplete {
+                case Success(res) => p.success(res)
+                case Failure(ex) => p.success(BadRequest("Forbidden"))
+              }
+            }
+          }
+          case Failure(ex) => p.success(BadRequest("Forbidden"))
+        }
+
+        p.future
+      }
+      else Future { BadRequest("Forbidden") }
+    }
+    lazy val parser = action.parser
+  }
+
+  object OwnerRestrictedAction extends ActionBuilder[Request] {
+    def invokeBlock[T](request: Request[T], block: (Request[T]) => Future[Result]) = {
+      block(request)
+    }
+
+    override def composeAction[T](action: Action[T]): Action[T] = AuthRestricted(OwnerRestricted(action))
+  }
+
 
   private lazy val client = ef(cs)
 
@@ -43,6 +104,9 @@ class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
         case Some(userid) => Some(userid.toString)
         case None => None
       }
+      val l = source.get("labels")
+      System.out.println(s"labs: $l")
+
       Trip(Some(hit.getId), source.get("title").toString, source.get("description").toString,
         source.get("public").asInstanceOf[Boolean], user_id, Some(source.get("labels").asInstanceOf[java.util.ArrayList[String]].asScala.toList))
     }
@@ -66,17 +130,14 @@ class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
     request.body.validate[Trip] match {
       case t: JsSuccess[Trip] => {
         val trip: Trip = t.get
-        System.out.println(trip)
         try {
           val p = Promise[Result]
+
           client.execute {
             index into "trips/trip" id UUID.randomUUID() fields(
               "title" -> trip.title,
               "description" -> trip.description,
-              "labels" -> (trip.labels match {
-                case Some(vals) => vals
-                case None => None
-              }),
+              "labels" -> trip.labels.getOrElse(None),
               "created_timestamp" -> DateTime.now.toString("yyyy-mm-dd HH:mm:ss Z"),
               "updated_timestamp" -> DateTime.now.toString("yyyy-mm-dd HH:mm:ss Z"),
               "user_id" -> (currentUser(request) match {
@@ -86,7 +147,7 @@ class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
               "public" -> (currentUser(request) == null || trip.public)
               )
           }.onComplete {
-            case Success(res) => p.success(Redirect("/"))//p.success(Ok(JsObject(List(("id", JsString(res.getId))))))
+            case Success(res) => p.success(Ok(JsObject(List(("id", JsString(res.getId))))))
             case Failure(ex) => p.success(InternalServerError("Error. Try again later"))
           }
 
@@ -99,11 +160,7 @@ class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
             }
         }
     }
-      case e: JsError =>  {
-        System.out.println(e.errors.head.toString())
-        System.out.println(e.errors.head._2)
-        Future { BadRequest("Trip title and description have to be provided") }
-      }
+      case e: JsError => Future { BadRequest("Trip title and description have to be provided") }
     }
 
   }
@@ -154,6 +211,42 @@ class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
         Future { InternalServerError("System down. Try again later") }
       }
     }
+
+  }
+
+  def remove(id: String) = OwnerRestrictedAction.async { implicit request =>
+    client.execute {
+      delete id id from "trips/trip"
+    }.map(r => Redirect(routes.HomeController.index()))
+  }
+
+  def my(id: String = "") = AuthRestrictedAction.async { implicit request =>
+    System.out.println(s"tripid: $id")
+
+    Trip.forUser(client, SessionHelpers.loggedInUser(request).id.get).map { trips =>
+      val trip: Trip = if(! id.isEmpty) trips.filter(t => t.id.get == id).head else trips.head
+      Ok(views.html.my(trip, trips, currentUser(request)))
+    }
+  }
+
+  def change(id: String) = OwnerRestrictedAction.async { implicit request =>
+    val title = request.body.asMultipartFormData.get.asFormUrlEncoded.get("title")
+    val description = request.body.asMultipartFormData.get.asFormUrlEncoded.get("description")
+    val labels = request.body.asMultipartFormData.get.asFormUrlEncoded.get("check_labels")
+    val types = request.body.asMultipartFormData.get.asFormUrlEncoded.get("type")
+
+    System.out.println(s"something title: $title, description: $description, labels: $labels, types: $types")
+
+//    request.body.validate[Trip] match {
+//      case t: JsSuccess[Trip] => {
+//        client.execute {
+//          update id id in "trips/trip" doc Map("title" -> t.get.title, "description" -> t.get.description, "labels" -> t.get.labels.getOrElse(None))
+//        }.map(r => Redirect(routes.TripsController.my(t.get.id.getOrElse(""))))
+//      }
+//      case e: JsError => Future { BadRequest("Invalid trip details") }
+//    }
+
+    Future { Ok("ok") }
 
   }
 

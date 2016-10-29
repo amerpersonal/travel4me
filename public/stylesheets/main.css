@@ -22,3 +22,15 @@ signin-container {
 .trip img {
     max-height: 120px;
 }
+
+.my_trip {
+    padding: 5px
+}
+
+.my_trip:hover {
+    background-color: #dff0d8;
+}
+
+.my_trip img {
+    margin-right: 10px;
+}

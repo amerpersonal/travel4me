@@ -1,53 +1,75 @@
-@(logged_in_user: User = null)(implicit messages: Messages)
+@(trip: Trip, logged_in_user: User = null)
 @import helpers.CustomHtmlHelpers._
 
+@form_action = @{ if(trip.isNew) routes.TripsController.create else routes.TripsController.change(trip.id.get) }
+@form_id = @{ if(trip.isNew) "add_trip" else "edit_trip" }
+
 <div class="well">
-    @helper.form(action = routes.TripsController.create, 'class -> "form-horizontal", 'id -> "add_trip", 'enctype -> "multipart/form-data") {
+    @helper.form(action = form_action, 'id -> form_id, 'enctype -> "multipart/form-data") {
         <h3 class="form-heading">Share your trip experience</h3>
+
         <div class="form-group">
-            <input type="text" class="form-control" placeholder="Name your trip" name="title" id="title"/>
+            <input type="text" class="form-control" placeholder="Name your trip" name="title" id="title" value="@trip.title"/>
         </div>
         <div class="form-group">
-            <!--<textarea class="form-control" rows="3" placeholder="Describe your trip briefly"></textarea>-->
-            <textarea class="form-control" rows="5" name="description" id="description" placeholder="Describe your trip"></textarea>
+            <textarea class="form-control" rows="5" name="description" id="description" placeholder="Describe your trip">@trip.description</textarea>
         </div>
 
-        <div class="form-group" id="check_labels">
-            <label>What was your travel about</label>
-            <div class="row-fluid">
-                <input type="checkbox" name="summer_vacation"> Summer vacation
-                <input type="checkbox" name="city_travel"> City travel
-            </div>
-            <div class="row-fluid">
-                <input type="checkbox" name="antropology"> Antropology
-            </div>
+        <div class="form-group" id="check_labels" name="check_labels">
+            <label>What was your travel about</label><br/>
+            @for((label, label_name) <- Trip.labels){
+                @if(trip.hasLabel(label_name)){
+                    <input type="checkbox" name="@label" checked /> @label_name
+                } else {
+                    <input type="checkbox" name="@label"/> @label_name
+                }
+            }
 
-            <div class="row-fluid">
-                <p>Or add your specific category</p>
-                <input type="text" class="form-control" name="custom_label" id="custom_label" />
+            <div>
+                <small>Or add your specific category</small>
+                <input type="text" class="form-control" name="custom_label" id="custom_label" value="@trip.customLabel" />
             </div>
 
             <input type="hidden" name="labels" id="labels" />
         </div>
 
-        <div class="row-fluid hide" id="image_upload">
+            @if(trip.isNew){
+            <div class="form-group hide" id="image_upload">
+                } else {
+                <div class="form-group" id="image_upload">
+                }
             <label for="image">Upload image from trip</label>
             <input type="file" name="image" id="image" />
+
+            @trip.image_collection match {
+                case Some(images) => {
+                    @for(image <- images){
+                        <img src="@image" width="48" height="48" />
+                    }
+                }
+                case None => {}
+            }
+
         </div>
 
-        @logged_in_user match {
-            case user: User => {
-                <div class="row-fluid">
+        <div class="form-group">
+            @logged_in_user match {
+                case user: User => {
                     <select id="type" name="type">
-                        <option value="my">Sign me on this trip</option>
-                        <option value="public">Add trip as public</option>
+                        @if(trip.public){
+                            <option value="public">Add trip as public</option>
+                            <option value="my">Sign me on this trip</option>
+                        } else {
+                            <option value="my">Sign me on this trip</option>
+                            <option value="public">Add trip as public</option>
+                        }
                     </select>
-                </div>
+                }
+                case null => {}
             }
-            case null => {}
-        }
+        </div>
 
-        <div class="row">
+        <div class="form-group">
             <input type="submit" class="btn btn-primary" value="Contribute" />
         </div>
 

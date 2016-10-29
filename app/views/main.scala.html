@@ -34,10 +34,13 @@
                 <div class="navbar-collapse collapse">
                     <ul class="nav navbar navbar-nav navbar-right">
                         @logged_in_user match {
-                            case user: User => { <li><a href="@logout_link">@user.email [Logout]</a></li> }
+                            case user: User => {
+                                <li><a href="@routes.TripsController.my("")">My trips</a></li>
+                                <li><a href="@logout_link">@user.email [Logout]</a></li>
+                            }
                             case null => {
-                            <li><a href="@routes.LoginController.signin">Login</a></li>
-                            <li><a href="@routes.LoginController.signup">Registration</a></li>
+                                <li><a href="@routes.LoginController.signin">Login</a></li>
+                                <li><a href="@routes.LoginController.signup">Registration</a></li>
                             }
                         }
                     </ul>

@@ -13,13 +13,11 @@ $(document).ready(function(){
                 return item[0].toUpperCase() + item.substring(1, item.length);
             }).join(" ");
         });
-        console.log(labels);
 
         if($("#custom_label").val().trim() !== "") labels.push($("#custom_label").val());
 
         var labels_arr = [];
         for(var i = 0; i < labels.length; i++){ labels_arr.push(labels[i]) }
-        console.log(labels_arr);
 
         $.ajax({
                 url: url,
@@ -37,6 +35,8 @@ $(document).ready(function(){
                     $("#error_message").addClass("hide");
                     $("#image_upload").removeClass("hide");
                     last_created_id = res.id;
+
+                    getAndRenderTrips();
                 },
                 error: function(jqXHR, textStatus, errorThrown ){
                     $("#error_message").removeClass("hide").html(jqXHR.responseText);
@@ -47,6 +47,45 @@ $(document).ready(function(){
         return false;
     });
 
+    var trips_per_row = 0;
+    function getAndRenderTrips(){
+
+
+            $.ajax({
+                url: "/trips/browse",
+                type: "POST",
+                data: JSON.stringify({"sort" : {"updated_timestamp" : "desc"}}),
+                processData: false,
+                contentType: "application/json",
+                success: function(trips){
+                    $("#trips").html("");
+                    var index = 0;
+
+                    var trips_html = '<div class="row">';
+                    for(var i = 0; i < trips.length; i++){
+                        trips_html += renderTrip(trips[i]);
+                    }
+                    trips_html += '<div>';
+                    $("#trips").html(trips_html);
+                }
+            });
+
+    }
+
+    function renderTrip(trip){
+        var html = '<div class="col-md-4 trip">' +
+                        '<div class="thumbnail">' +
+                            '<a href="#"><img src="' + trip.image_collection[0] + '" /></a>' +
+                            '<div class="caption">' +
+                               '<a href="#"><h4>' + trip.title + '</h4></a>' +
+                                '<p>' + trip.description + '</p>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+
+
+        return html;
+    }
 
     $("#image").on("change", function(){
        var fd = new FormData();
@@ -66,4 +105,5 @@ $(document).ready(function(){
                }
        });
     });
+
 });

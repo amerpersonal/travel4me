@@ -17,8 +17,8 @@ object SessionHelpers {
   private val session_duration_ms = play.api.Play.current.configuration.underlying.getLong("play.http.session.duration") * 1000
 
   def hasSession(request: Request[Any]) : Boolean = {
-    val usr = if(sessionExpired(request)) None else request.session.get("current_user")
-    usr != None
+    if(sessionExpired(request)) false
+    else request.session.get("current_user") != None
   }
 
   def loggedInUser(request: Request[Any]) : User = {

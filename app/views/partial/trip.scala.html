@@ -1,11 +1,29 @@
 @(trip: Trip, logged_in_user: User = null)(implicit messages: Messages)
 
-<div class="col-md-4 trip">
+<div class="col-md-4 trip" id="@trip.id.get">
     <div class="thumbnail">
+        @logged_in_user match {
+            case user: User => {
+                @user.id match {
+                    case trip.userId => {
+                        @helper.form(action = routes.TripsController.remove(trip.id.get)){
+                            <button type="submit" class="pull-right">
+                                <i class="glyphicon glyphicon-remove text-warning"></i>
+                            </button>
+                        }
+                    }
+                    case _ => {}
+                }
+            }
+            case _ => {}
+        }
+
         <a href="#"><img src="@trip.image_collection.get.head" /></a>
         <div class="caption">
             <a href="#"><h4>@trip.title</h4></a>
             <p>@trip.description</p>
+
         </div>
+
     </div>
 </div>

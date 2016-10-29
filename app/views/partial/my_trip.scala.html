@@ -1,0 +1,37 @@
+@(trip: Trip, logged_in_user: User = null)
+
+@display(labels: List[String]) = {
+    @for(label <- labels){
+        <span class="glyphicon glyphicon-triangle-right">@label</span>
+    }
+}
+
+<div class="row my_trip">
+    <div class="col-md-8">
+        <div class="row">
+            <div class="col-md-12">
+                <img src="@trip.image_collection.get.head" width="96" height="96" class="img-rounded pull-left" />
+
+                <h4 class="text-primary">@trip.title</h4>
+                <p>@trip.description</p>
+
+                <small class="text-muted">Updated at @trip.updated_timestamp.toString</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+
+        @trip.labels match {
+            case Some(labels: List[String]) => { @display(labels) }
+            case _ => {}
+        }
+
+    </div>
+
+    <div class="col-md-1">
+        <div class="row">
+            <a class="glyphicon glyphicon-edit" href="@routes.TripsController.my(trip.id.get)"></a>
+            <a href="#" class="glyphicon glyphicon-remove" href="@routes.TripsController.remove(trip.id.get)"></a>
+        </div>
+    </div>
+</div>

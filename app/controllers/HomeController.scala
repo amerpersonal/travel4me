@@ -27,10 +27,19 @@ class HomeController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory)(implici
 
   def index = Action.async { implicit request =>
     val logged_in_user = helpers.SessionHelpers.loggedInUser(request)
-    val query:Map[String, Object] = Map("size" -> JsNumber(10))
-    val trips: Future[List[Trip]] = Trip.browse(client, query)
+    val query:Map[String, Object] = Map("size" -> JsNumber(50), "sort" -> Map("updated_timestamp" -> "desc"))
 
-    trips.map(r => Ok(views.html.index(r, logged_in_user)))
+    try {
+      Trip.browse(client, query).map(r => Ok(views.html.index(r, logged_in_user)))
+    }
+    catch {
+      case ex: Throwable => {
+        System.out.println(ex.getMessage)
+        Future { Ok(views.html.index(List(), logged_in_user)) }
+      }
+    }
+
+
   }
 
 
