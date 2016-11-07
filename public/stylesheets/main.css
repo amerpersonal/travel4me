@@ -34,3 +34,28 @@ signin-container {
 .my_trip img {
     margin-right: 10px;
 }
+
+#image_upload img:hover {
+    opacity: 0.4;
+    cursor: pointer;
+}
+
+.search-filter {
+    padding: 0 15px 10px 15px;
+}
+
+#search {
+    width: 200px;
+}
+
+.remove-btn {
+    background-color: transparent;
+    border: none;
+    height: 14px;
+    padding: 0;
+}
+
+.remove-form {
+    display: inline-block;
+    padding: 0;
+}

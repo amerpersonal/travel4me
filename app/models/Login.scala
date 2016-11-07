@@ -1,5 +1,7 @@
 package models
 
+import com.sksamuel.elastic4s.{HitAs, RichSearchHit}
+
 import scala.util.matching.Regex
 
 /**
@@ -12,5 +14,13 @@ object Login {
 
   def validate(email: String, password: String) = {
     if(password.trim.length > 7) Some(Login(email, password)) else None
+  }
+
+  implicit object HitAsLogin extends HitAs[Login] {
+    override def as(hit: RichSearchHit): Login = {
+      val source = hit.getSource
+
+      Login(source.get("email").toString, source.get("password").toString)
+    }
   }
 }

@@ -1,4 +1,9 @@
-@(trip: Trip, logged_in_user: User = null)
+@(trip: Trip)(implicit request: Request[Any])
+
+@import helpers.SessionHelper._
+@import helpers.CommonHelper._
+
+@logged_in_user = @{loggedInUser(request)}
 
 @display(labels: List[String]) = {
     @for(label <- labels){
@@ -13,7 +18,7 @@
                 <img src="@trip.image_collection.get.head" width="96" height="96" class="img-rounded pull-left" />
 
                 <h4 class="text-primary">@trip.title</h4>
-                <p>@trip.description</p>
+                <p>@stripText(trip.description)</p>
 
                 <small class="text-muted">Updated at @trip.updated_timestamp.toString</small>
             </div>
@@ -31,7 +36,12 @@
     <div class="col-md-1">
         <div class="row">
             <a class="glyphicon glyphicon-edit" href="@routes.TripsController.my(trip.id.get)"></a>
-            <a href="#" class="glyphicon glyphicon-remove" href="@routes.TripsController.remove(trip.id.get)"></a>
+
+            @helper.form(action = routes.TripsController.remove(trip.id.get), 'class -> "remove-form"){
+                <button type="submit" class="pull-right remove-btn">
+                    <i class="glyphicon glyphicon-remove text-warning"></i>
+                </button>
+            }
         </div>
     </div>
 </div>

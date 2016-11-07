@@ -2,6 +2,7 @@ package models
 
 import java.util.UUID
 
+import com.sksamuel.elastic4s.{HitAs, RichSearchHit}
 import org.mindrot.jbcrypt.BCrypt
 import play.api.data.validation.ValidationError
 import play.api.libs.functional.syntax._
@@ -50,11 +51,18 @@ case class User(var id: Option[String], val email: String, val password: String,
 
 object User {
 
+  implicit object HitAsUser extends HitAs[User] {
+    override def as(hit: RichSearchHit): User = {
+      val source = hit.getSource
+
+      User(Some(hit.id), source.get("email").toString, source.get("password").toString, source.get("password").toString).set_salt(source.get("salt").toString)
+    }
+  }
+
   val email_regex = new Regex("^[-a-z0-9~!$%^&*_=+}{\\'?]+(\\.[-a-z0-9~!$%^&*_=+}{\\'?]+)*@([a-z0-9_][-a-z0-9_]*(\\.[-a-z0-9_]+)*\\.(aero|arpa|biz|com|coop|edu|gov|info|int|mil|museum|name|net|org|pro|travel|mobi|[a-z][a-z])|([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}))(:[0-9]{1,5})?$")
   val uuid_regex = new Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
   def validate(id: Option[String], email: String, password: String, password_confirmation: String) = {
-    System.out.println(s"validating $email, $password, $password_confirmation")
     if ((id != None && uuid_regex != id) || email.trim.isEmpty || password.trim.isEmpty || password_confirmation.isEmpty
       || password != password_confirmation) None
     else Some(User(id, email, password, password_confirmation))
@@ -63,10 +71,6 @@ object User {
   def notEmpty(implicit r:Reads[String]):Reads[String] = Reads.filterNot(ValidationError("validate.error.unexpected.value", ""))(_.trim().eq(""))
 
   implicit val userReader: Reads[User] = {
-
-//      var readed: Reads[Option[String]] = (__ \ "salt").readNullable[String]
-//      if(readed) readed = Reads.pure(Option(BCrypt.gensalt()))
-
     (
       (__ \ "id").readNullable[String] and
         (__ \ "email").read[String](notEmpty) and

@@ -20,31 +20,14 @@ import java.util.UUID
 import org.joda.time.{DateTime, DateTimeZone}
 import org.mindrot.jbcrypt.BCrypt
 import play.api.libs.json._
+import play.api.Logger
 
 import scala.util.Try
 
 /**
   * Created by amer.zildzic on 10/7/16.
   */
-class LoginController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(implicit exec: ExecutionContext) extends ApplicationController {
-  private lazy val client = ef(cs)
-
-  implicit object HitAs extends HitAs[Login] {
-    override def as(hit: RichSearchHit): Login = {
-      val source = hit.getSource
-
-      Login(source.get("email").toString, source.get("password").toString)
-    }
-  }
-
-  implicit object HitAsUser extends HitAs[User] {
-    override def as(hit: RichSearchHit): User = {
-      val source = hit.getSource
-
-      User(Some(hit.id), source.get("email").toString, source.get("password").toString, source.get("password").toString).set_salt(source.get("salt").toString)
-    }
-  }
-
+class LoginController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(implicit exec: ExecutionContext) extends ApplicationController(ef: PlayElasticFactory, cs: ClusterSetup) {
 
   val signinForm = Form(play.api.data.Forms.mapping("email" -> nonEmptyText, "password" -> nonEmptyText(8))
   (Login.apply)(Login.unapply).verifying("Failed form constraints!", login => login match {
@@ -58,7 +41,7 @@ class LoginController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
 
 
   def signin = Action { implicit request =>
-    if(!helpers.SessionHelpers.hasSession(request)) Ok(views.html.signin()) else Redirect("/")
+    if(!hasSession(request)) Ok(views.html.signin()) else Redirect("/")
   }
 
   def login = Action.async { implicit request =>
@@ -74,7 +57,10 @@ class LoginController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
               val response = if (res.getHits.totalHits > 0) {
                 val user = res.as[User].head
 
-                if(BCrypt.hashpw(login.password, user.salt) == user.password) Redirect("/").withSession("current_user" -> user.serialize, "started" -> DateTime.now.getMillis.toString)
+                if(BCrypt.hashpw(login.password, user.salt) == user.password) {
+                  Logger.info(s"Succesfull authentication for user $user.email")
+                  Redirect("/").withSession("current_user" -> user.serialize, "started" -> DateTime.now.getMillis.toString)
+                }
                 else Redirect("/signin").flashing("error" -> "Wrong email or password")
 
               }
@@ -94,7 +80,7 @@ class LoginController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
   }
 
   def signup = Action { implicit request =>
-    if(!helpers.SessionHelpers.hasSession(request)) Ok(views.html.signup()) else Redirect("/")
+    if(!hasSession(request)) Ok(views.html.signup()) else Redirect("/")
   }
 
   def registrate = Action.async { implicit  request =>
@@ -108,7 +94,6 @@ class LoginController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
             search in "users/user" query(bool(List(termQuery("email", user.email)), List(), List()))
           }.onComplete {
             case Success(res) => {
-              System.out.println("res users: " + res.getHits.totalHits)
               if (res.getHits.totalHits == 0) {
                 client.execute {
                   index into "users/user" id UUID.randomUUID() fields(
@@ -149,7 +134,7 @@ class LoginController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
           case Some(verification_str) => {
             val ts = verification_str.split(":").toSet.last.toString.toLong
 
-            val session_ts = helpers.SessionHelpers.verificationString(request, ts)
+            val session_ts = verificationString(request, ts)
             if(session_ts == vs.head) Redirect("/").withNewSession
             else BadRequest("Access denied")
 

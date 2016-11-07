@@ -24,7 +24,7 @@ import org.json4s.jackson.JsonMethods._
 /**
   * Created by amer.zildzic on 10/5/16.
   */
-class ImagesFetcher @Inject()(conf: play.api.Configuration, cs: ClusterSetup, ef: PlayElasticFactory) extends Actor with ActorLogging {
+class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, ef: PlayElasticFactory) extends Actor with ActorLogging {
   implicit val executionContext = context.dispatcher
 
   implicit val formats = org.json4s.DefaultFormats
@@ -43,8 +43,8 @@ class ImagesFetcher @Inject()(conf: play.api.Configuration, cs: ClusterSetup, ef
   }
 
   private lazy val client = ef(cs)
-  private val base_url = conf.underlying.getString("flickr.search_url")
-  private val api_key = conf.underlying.getString("flickr.api_key")
+  private val base_url = config.underlying.getString("flickr.search_url")
+  private val api_key = config.underlying.getString("flickr.api_key")
 
 
   case class FetchSearchTerms()
@@ -52,16 +52,16 @@ class ImagesFetcher @Inject()(conf: play.api.Configuration, cs: ClusterSetup, ef
   case class ImagesFetched(trip_id: String, images: Seq[String])
 
   val scheduler = context.system.scheduler.schedule(
-    initialDelay = 5.minutes,
+    initialDelay = 10.minutes,
     message = FetchSearchTerms,
-    interval = 1.minute,
+    interval = 5.minute,
     receiver = self
   )(executionContext)
 
   override  def receive:Receive = {
     case FetchSearchTerms => fetchSearchTerms()
     case TermsFetched(trip: Trip) => fetchImages(trip: Trip)
-    case ImagesFetched(trip_id: String, images: Seq[String]) => System.out.println(s"Fetched images for trip $trip_id: \n" + images.mkString("\n"))
+    case ImagesFetched(trip_id: String, images: Seq[String]) => log.info(s"Fetched images for trip $trip_id: \n" + images.mkString("\n"))
 
   }
 
@@ -69,12 +69,11 @@ class ImagesFetcher @Inject()(conf: play.api.Configuration, cs: ClusterSetup, ef
     val term: String = trip.title
     val terms: List[String] = term.split(" ").toList.flatMap { _.trim.split(",").map(_.trim) }
     val terms_string = terms.mkString(",")
-    System.out.println(s"Fetching images for trip $terms_string")
+    log.info(s"Fetching images for trip $terms_string")
 
 
     val term_encoded = views.html.helper.urlEncode(terms_string)
     val url = s"$base_url&api_key=$api_key&tags=$term_encoded"
-    System.out.println(url)
     val images_json = Source.fromURL(url).mkString.replace("jsonFlickrApi(", "").dropRight(1)
 
     val images_details: Map[String, Any] = parse(images_json).extract[Map[String, Any]].get("photos") match {
@@ -91,16 +90,16 @@ class ImagesFetcher @Inject()(conf: play.api.Configuration, cs: ClusterSetup, ef
         }
 
         val images = old_images ::: (for (photo <- photos.asInstanceOf[List[Map[String, String]]]) yield urlForPhoto(photo)).toList
-        System.out.println(images)
 
         client.execute {
           update id trip.id.get in "trips/trip" doc(("image_collection", images))
         }.onComplete {
           case Success(res) => self ! ImagesFetched(trip.id.get, images)
-          case Failure(ex) => System.out.println(s"Error while indexing images for trip $trip.id.get" + ex.getMessage)
+          case Failure(ex) => log.error(s"Error while indexing images for trip $trip.id.get" + ex.getMessage)
         }
 
       }
+      case None => {}
     }
 
   }
@@ -111,15 +110,10 @@ class ImagesFetcher @Inject()(conf: play.api.Configuration, cs: ClusterSetup, ef
 
   def fetchSearchTerms(): Unit = {
     client.execute{
-      val sr = search in "trips/trip" query must(not(prefixQuery("image_collection.ngram", "flickr")), existsQuery("title")) sort fieldSort("created_timestamp").order(SortOrder.DESC) size 1
-      System.out.println(sr.toString())
-      sr
+      search in "trips/trip" query must(not(prefixQuery("image_collection.ngram", "flickr")), existsQuery("title")) sort fieldSort("created_timestamp").order(SortOrder.DESC) size 1
     }.onComplete(r => r match {
-      case Success(res) => {
-        val hits = res.getHits
-        if(hits.totalHits() > 0) self ! TermsFetched(res.as[Trip].head)
-      }
-      case Failure(ex) => System.out.println("Failure while fetching terms: " + ex.getMessage)
+      case Success(res) => if(res.getHits.totalHits() > 0) self ! TermsFetched(res.as[Trip].head)
+      case Failure(ex) => log.error("Failure while fetching terms: " + ex.getMessage)
     })
 
   }

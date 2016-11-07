@@ -1,12 +1,17 @@
-@(trip: Trip, trips: List[Trip], logged_in_user: User = null)(implicit request: Request[Any])
+@(trip: Trip, trips: List[Trip])(implicit request: Request[Any], flash: Flash)
 
-@main("My trips", logged_in_user) {
+@import helpers.SessionHelper._
+
+@logged_in_user = @{loggedInUser(request)}
+
+@main("My trips") {
     <div class="row">
         <div class="col-md-8">
             @trips.map { trip => @partial.my_trip(trip) }
         </div>
+
         <div class="col-md-4">
-            @partial.add_trip(trip, logged_in_user)
+            @partial.add_trip(trip, flash)
         </div>
     </div>
 }

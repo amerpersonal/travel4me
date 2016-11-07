@@ -7,8 +7,13 @@ import org.elasticsearch.search.aggregations.support.format.ValueFormatter.DateT
 import org.elasticsearch.search.sort.SortOrder
 import play.Play
 import play.api.libs.json._
-
+import scala.concurrent.ExecutionContext
+import scala.collection.JavaConverters._
+import play.api.Logger
 import scala.util.Try
+import javax.inject.Inject
+import play.cache.CacheApi
+
 /**
   * Created by amer.zildzic on 9/21/16.
   */
@@ -22,8 +27,9 @@ import scala.collection.JavaConverters._
 import services.Search
 import org.joda.time.DateTime
 import org.joda.time.format._
+import play.api.cache.Cache
 
-case class Trip(var id: Option[String] = None,
+case class Trip (var id: Option[String] = None,
                 val title: String,
                 val description: String,
                 val public: Boolean,
@@ -40,58 +46,28 @@ case class Trip(var id: Option[String] = None,
     else Some(Trip(id, title, description, public, None, labels))
   }
 
+  def isValid: Boolean = (id == None || uuid_regex.pattern.matcher(id.get).matches) && !title.trim.isEmpty && !description.trim.isEmpty
+
   def hasLabel(label: String): Boolean = labels match {
     case Some(l) => l.toSet.contains(label)
     case None => false
   }
 
   def customLabel: String = labels match {
-    case Some(labels) => labels.filter(label => !Trip.labels.exists(_._2 == label)).headOption.getOrElse("")
+    case Some(labels) => labels.filter(label => !Trip.labels.exists(_._1 == label)).headOption.getOrElse("")
     case None => ""
   }
 
   def isNew: Boolean = title.isEmpty && description.isEmpty
+
 }
 
 object Trip extends Search {
-  implicit val exec = scala.concurrent.ExecutionContext.global
-  val default_image = play.api.Play.current.configuration.underlying.getString("general.default_img_path") + "/" +
-                      play.api.Play.current.configuration.underlying.getString("general.default_img")
+  var default_image_path: String = null
 
-  implicit object TripHitAs extends HitAs[Trip] {
-    val formatter: DateTimeFormatter = DateTimeFormat.forPattern("dd/MM/yyyy HH:mm:ss");
-
-    override def as(hit: RichSearchHit): Trip = {
-      val source = hit.getSource
-
-      val user_id: Option[String] = source.get("user_id") match {
-        case Some(value) => Some(value.toString)
-        case value: String => Some(value.toString)
-        case _ => None
-      }
-
-      val labels = source.get("labels") match {
-        case labels: java.util.ArrayList[String] => labels.asScala.toList
-        case _ => List()
-      }
-
-      val images: List[String] = source.get("image_collection") match {
-        case imgs: java.util.ArrayList[String] => imgs.asScala.toList
-        case _ => List(default_image)
-      }
-
-      val ud = source.get("updated_timestamp")
-
-//      val updated_timestamp: org.joda.time.DateTime = formatter.parseDateTime(ud.toString)
-
-      Trip(Some(hit.getId), source.get("title").toString, source.get("description").toString,
-        source.get("public").asInstanceOf[Boolean], user_id, Some(labels), Some(images), org.joda.time.DateTime.now)
-    }
+  def set_default_image(path: String) = {
+    default_image_path = path
   }
-
-  def labels: Map[String, String] = Map("summer_vacation" -> "Summer Vacation", "city_travel" -> "City Travel", "antropology" -> "Antropology")
-
-  def notEmpty(implicit r:Reads[String]):Reads[String] = Reads.filterNot(ValidationError("validate.error.unexpected.value", ""))(_.trim().eq(""))
 
   implicit val tripReader: Reads[Trip] = {
     (
@@ -107,20 +83,71 @@ object Trip extends Search {
   }
 
   implicit val tripWriter: Writes[Trip] = (
-      (JsPath \ "id").write[Option[String]] and
-        (JsPath \ "title").write[String] and
-        (JsPath \ "description").write[String] and
-        (JsPath \ "public").write[Boolean] and
-        (JsPath \ "user_id").write[Option[String]] and
-        (JsPath \ "labels").write[Option[List[String]]] and
-        (JsPath \ "image_collection").write[Option[List[String]]] and
-          (JsPath \ "updated_timestamp").write[org.joda.time.DateTime]
+    (JsPath \ "id").write[Option[String]] and
+      (JsPath \ "title").write[String] and
+      (JsPath \ "description").write[String] and
+      (JsPath \ "public").write[Boolean] and
+      (JsPath \ "user_id").write[Option[String]] and
+      (JsPath \ "labels").write[Option[List[String]]] and
+      (JsPath \ "image_collection").write[Option[List[String]]] and
+      (JsPath \ "updated_timestamp").write[org.joda.time.DateTime]
     )(unlift(Trip.unapply))
+
+  object StringList {
+    def apply(labels: List[String]) = {
+      var list = new java.util.ArrayList[String]()
+      labels.foreach(l => list.add(l))
+      list
+    }
+
+    def unapply(elements: Object): Option[List[String]] = {
+      Try(elements.asInstanceOf[java.util.ArrayList[String]]).toOption match {
+        case Some(java_list: Any) => Some(java_list.asScala.toList)
+        case _ => None
+      }
+
+    }
+  }
+
+  implicit object HitAsTrip extends HitAs[Trip] {
+    val formatter: DateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss Z");
+
+    override def as(hit: RichSearchHit): Trip = {
+      val source = hit.getSource
+
+      val user_id: Option[String] = source.get("user_id") match {
+        case Some(value) => Some(value.toString)
+        case value: String => Some(value.toString)
+        case _ => None
+      }
+
+      val labels = source.get("labels") match {
+        case StringList(labels) => labels
+        case _ => List()
+      }
+
+      val images: List[String] = source.get("image_collection") match {
+        case StringList(imgs) => imgs
+        case _ => List(default_image_path)
+      }
+
+      val updated = formatter.parseDateTime(source.get("updated_timestamp").toString)
+
+      Trip(Some(hit.getId), source.get("title").toString, source.get("description").toString,
+        source.get("public").asInstanceOf[Boolean], user_id, Some(labels), Some(images), updated)
+    }
+  }
+
+  def labels: Map[String, String] = Map("summer_vacation" -> "Summer Vacation", "city_travel" -> "City Travel", "antropology" -> "Antropology")
+
+  def notEmpty(implicit r:Reads[String]):Reads[String] = Reads.filterNot(ValidationError("validate.error.unexpected.value", ""))(_.trim().eq(""))
 
   def browse(client: ElasticClient, options: Map[String, Object]): Future[List[Trip]] = {
     client.execute {
       val default_queries = List(must(existsQuery("title")))
-      prepare_search(options, default_queries)
+      val sr = prepare_search(options, default_queries)
+      Logger.debug(sr.toString())
+      sr
     }.map(r => r.as[Trip].toList)
   }
 

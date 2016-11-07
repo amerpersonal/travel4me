@@ -4,7 +4,6 @@ package controllers
   * Created by amer.zildzic on 9/20/16.
   */
 import java.util.UUID
-
 import javax.inject._
 
 import play.api.mvc._
@@ -13,119 +12,23 @@ import play.Play
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import com.evojam.play.elastic4s.PlayElasticFactory
 import com.evojam.play.elastic4s.configuration.ClusterSetup
-import com.sksamuel.elastic4s._
 import com.sksamuel.elastic4s.ElasticDsl._
 import org.joda.time.DateTime
-import play.api.data.Forms._
-import play.api.data.Form
 import models._
-import play.api.libs.json.{JsError, JsSuccess, JsValue, Json}
+import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.libs.json._
 
 import scala.util.{Failure, Success}
 import java.io.File
 
-import scala.collection.JavaConverters._
-import org.elasticsearch.search.sort.SortOrder
+import akka.actor.ActorSystem
+import play.api.{Configuration, Logger}
+import play.api.Application
 
-import scala.util.parsing.json.JSONObject
-
-import helpers._
-
-class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(implicit exec: ExecutionContext) extends ApplicationController {
-
-//  val tripForm = Form(play.api.data.Forms.mapping("id" -> optional(text), "title" -> nonEmptyText, "description" -> nonEmptyText,
-//    "type" -> optional(Boolean))
+import scala.concurrent.duration._
 
 
-  case class AuthRestricted[T](action: Action[T]) extends Action[T] {
-    def apply(request: Request[T]): Future[Result] = {
-      if(SessionHelpers.hasSession(request)) action(request)
-      else Future { Redirect(routes.LoginController.signin()) }
-    }
-
-    lazy val parser = action.parser
-  }
-
-  object AuthRestrictedAction extends ActionBuilder[Request] {
-    def invokeBlock[T](request: Request[T], block: (Request[T] => Future[Result])): Future[Result] = {
-      block(request)
-    }
-
-    override def composeAction[A](action: Action[A]): Action[A] = new AuthRestricted(action)
-  }
-
-  case class OwnerRestricted[T](action: Action[T]) extends Action[T] {
-    def apply(request: Request[T]): Future[Result] = {
-      val logged_in_user: User = helpers.SessionHelpers.loggedInUser(request)
-      System.out.println("owner rest")
-      if(logged_in_user != null){
-        val p = Promise[Result]
-
-        val id = request.path.split("/").last
-        System.out.println(s"=== id: $id")
-        client.execute {
-          get id id from "trips/trip" fields "user_id"
-        }.onComplete {
-          case Success(res) => {
-            if(res.isExists && res.field("user_id").getValue.toString == logged_in_user.id.get) {
-              action(request).onComplete {
-                case Success(res) => p.success(res)
-                case Failure(ex) => p.success(BadRequest("Forbidden"))
-              }
-            }
-          }
-          case Failure(ex) => p.success(BadRequest("Forbidden"))
-        }
-
-        p.future
-      }
-      else Future { BadRequest("Forbidden") }
-    }
-    lazy val parser = action.parser
-  }
-
-  object OwnerRestrictedAction extends ActionBuilder[Request] {
-    def invokeBlock[T](request: Request[T], block: (Request[T]) => Future[Result]) = {
-      block(request)
-    }
-
-    override def composeAction[T](action: Action[T]): Action[T] = AuthRestricted(OwnerRestricted(action))
-  }
-
-
-  private lazy val client = ef(cs)
-
-  implicit object TripHitAs extends HitAs[Trip] {
-    override def as(hit: RichSearchHit): Trip = {
-      val source = hit.getSource
-
-      val user_id: Option[String] = source.get("user_id") match {
-        case Some(userid) => Some(userid.toString)
-        case None => None
-      }
-      val l = source.get("labels")
-      System.out.println(s"labs: $l")
-
-      Trip(Some(hit.getId), source.get("title").toString, source.get("description").toString,
-        source.get("public").asInstanceOf[Boolean], user_id, Some(source.get("labels").asInstanceOf[java.util.ArrayList[String]].asScala.toList))
-    }
-  }
-
-  implicit object ArrayFormat extends Format[Array[Trip]] {
-    override def writes(trips: Array[Trip]): JsValue = {
-      JsObject.apply(trips.map(trip => trip.id match {
-        case Some(value) => value -> Json.toJson(trip)
-        case None => "" ->  Json.toJson(trip)
-      }))
-    }
-
-    override def reads(json: JsValue): JsResult[Array[Trip]] = {
-      JsSuccess(Array.empty)
-    }
-  }
-
-
+class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorSystem: ActorSystem, app: Provider[Application])(implicit exec: ExecutionContext) extends ApplicationController(ef: PlayElasticFactory, cs: ClusterSetup) {
   def create = Action.async(parse.json) { implicit request =>
     request.body.validate[Trip] match {
       case t: JsSuccess[Trip] => {
@@ -138,20 +41,21 @@ class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
               "title" -> trip.title,
               "description" -> trip.description,
               "labels" -> trip.labels.getOrElse(None),
-              "created_timestamp" -> DateTime.now.toString("yyyy-mm-dd HH:mm:ss Z"),
-              "updated_timestamp" -> DateTime.now.toString("yyyy-mm-dd HH:mm:ss Z"),
-              "user_id" -> (currentUser(request) match {
+              "created_timestamp" -> DateTime.now.toString("y-M-d H:m:s Z"),
+              "updated_timestamp" -> DateTime.now.toString("y-M-d H:m:s Z"),
+              "user_id" -> (loggedInUser(request) match {
                 case user: User => user.id.get
                 case null => null
               }),
-              "public" -> (currentUser(request) == null || trip.public)
+              "public" -> (loggedInUser(request) == null || trip.public)
               )
           }.onComplete {
             case Success(res) => p.success(Ok(JsObject(List(("id", JsString(res.getId))))))
             case Failure(ex) => p.success(InternalServerError("Error. Try again later"))
           }
 
-          p.future
+          val timeoutFuture = akka.pattern.after(10.millis, actorSystem.scheduler)(p.future)
+          timeoutFuture
 
         }
         catch {
@@ -168,8 +72,9 @@ class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
   def upload(id: String) = Action.async { implicit request =>
     request.body.asMultipartFormData.get.file("image").map { picture =>
       val filename = id + "_" + picture.filename
-      var filepath = Play.application().path() + s"/public/images/" + filename
-      System.out.println(s"Saving image to path $filepath")
+      val filepath = app.get.path.getAbsolutePath + s"/public/images/" + filename
+
+      Logger.info(s"Saving image to path $filepath")
       picture.ref.moveTo(new File(filepath))
       client.execute {
         update id id in "trips/trip" script {
@@ -207,7 +112,7 @@ class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
     }
     catch {
       case ex : Throwable => {
-        System.out.println(ex.getMessage)
+        Logger.error(ex.getMessage)
         Future { InternalServerError("System down. Try again later") }
       }
     }
@@ -215,40 +120,94 @@ class TripsController @Inject() (cs: ClusterSetup, ef: PlayElasticFactory)(impli
   }
 
   def remove(id: String) = OwnerRestrictedAction.async { implicit request =>
+    val p = Promise[Result]()
     client.execute {
       delete id id from "trips/trip"
-    }.map(r => Redirect(routes.HomeController.index()))
+    }.onComplete {
+      case Success(r) => p.success(Redirect(routes.HomeController.index("all")))
+      case Failure(ex) => p.success(Redirect(routes.HomeController.index("all")))
+    }
+
+    val timeoutFuture = akka.pattern.after(10.millis, actorSystem.scheduler)(p.future)
+    timeoutFuture
   }
 
   def my(id: String = "") = AuthRestrictedAction.async { implicit request =>
-    System.out.println(s"tripid: $id")
-
-    Trip.forUser(client, SessionHelpers.loggedInUser(request).id.get).map { trips =>
+    Trip.forUser(client, loggedInUser(request).id.get).map { trips =>
       val trip: Trip = if(! id.isEmpty) trips.filter(t => t.id.get == id).head else trips.head
-      Ok(views.html.my(trip, trips, currentUser(request)))
+      Ok(views.html.my(trip, trips))
     }
   }
 
   def change(id: String) = OwnerRestrictedAction.async { implicit request =>
-    val title = request.body.asMultipartFormData.get.asFormUrlEncoded.get("title")
-    val description = request.body.asMultipartFormData.get.asFormUrlEncoded.get("description")
-    val labels = request.body.asMultipartFormData.get.asFormUrlEncoded.get("check_labels")
-    val types = request.body.asMultipartFormData.get.asFormUrlEncoded.get("type")
+    val title = request.body.asMultipartFormData.get.asFormUrlEncoded.get("title").getOrElse(Vector("")).head
+    val description = request.body.asMultipartFormData.get.asFormUrlEncoded.get("description").getOrElse(Vector("")).head
+    val custom_label = request.body.asMultipartFormData.get.asFormUrlEncoded.get("custom_label").getOrElse(Vector()).filter(!_.isEmpty)
+    val pred_labels = request.body.asMultipartFormData.get.asFormUrlEncoded.get("check_labels").getOrElse(Vector())
+    val labels = pred_labels ++ custom_label
+    val public = request.body.asMultipartFormData.get.asFormUrlEncoded.get("type").getOrElse(Vector("")).head == "public"
 
-    System.out.println(s"something title: $title, description: $description, labels: $labels, types: $types")
+    val trip = Trip(Some(id), title, description, public, loggedInUser(request).id, Some(labels.toList), None, org.joda.time.DateTime.now)
 
-//    request.body.validate[Trip] match {
-//      case t: JsSuccess[Trip] => {
-//        client.execute {
-//          update id id in "trips/trip" doc Map("title" -> t.get.title, "description" -> t.get.description, "labels" -> t.get.labels.getOrElse(None))
-//        }.map(r => Redirect(routes.TripsController.my(t.get.id.getOrElse(""))))
-//      }
-//      case e: JsError => Future { BadRequest("Invalid trip details") }
-//    }
+    if(trip.isValid) {
+      val p = Promise[Result]()
 
-    Future { Ok("ok") }
+      client.execute {
+        get id id from "trips/trip" fields "title"
+      }.map(res => {
+        if(res.isExists){
+          val res = client.execute {
+            update id id in "trips/trip" doc Map("title" -> trip.title, "description" -> trip.description, "labels" -> trip.labels.get, "public" -> trip.public, "updated_timestamp" -> trip.updated_timestamp.toString("y-M-d H:m:s Z"))
+          }.onComplete {
+            case Success(res) => p.success(Redirect(routes.TripsController.my(trip.id.get)))
+            case Failure(ex) => p.success(BadRequest(s"Error while updating trip: $ex.getMessage"))
+          }
+        }
+        else p.success(BadRequest("Not Found"))
+      })
+
+      val timeoutFuture = akka.pattern.after(2.millis, actorSystem.scheduler)(p.future)
+      timeoutFuture
+
+    }
+    else {
+      Future { Redirect(routes.TripsController.my(id)).flashing("error" -> "Title and description needs to be provided") }
+    }
+
 
   }
 
+  def removeImage(id: String) = OwnerRestrictedAction.async { implicit request =>
+    val p = Promise[Result]()
+    val image_name = request.body.asFormUrlEncoded.get("image_to_remove").head
+
+    if(image_name.isEmpty) p.success(Redirect(routes.TripsController.my(id)))
+    else {
+      client.execute {
+        get id id from "trips/trip" fields("title", "image_collection")
+      }.map(res => {
+        if (res.isExists) {
+          val res = client.execute {
+            update id id in "trips/trip" script {
+              script("ctx._source.image_collection.remove(fn)").param("fn", image_name)
+            }
+          }.onComplete {
+            case Success(res) => {
+              if(image_name.contains(id)) {
+                val file = new java.io.File(s"/public/images/$image_name")
+                file.delete()
+              }
+              p.success(Redirect(routes.TripsController.my(id)))
+            }
+            case Failure(ex) => p.success(BadRequest(s"Error while updating trip: $ex.getMessage"))
+          }
+        }
+        else p.success(BadRequest("Not Found"))
+      })
+    }
+
+    val timeoutFuture = akka.pattern.after(10.millis, actorSystem.scheduler)(p.future)
+    timeoutFuture
+  }
 
 }

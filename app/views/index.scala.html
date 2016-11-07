@@ -2,7 +2,8 @@
  * This template takes a single argument, a String containing a
  * message to display.
  *@
-@(trips: List[Trip], logged_in_user: User = null)(implicit messages: Messages, request: Request[Any])
+
+@(trips: List[Trip])(implicit request: Request[Any], flash: Flash)
 @new_trip = @{ Trip(None, "", "", true, None, None, None, org.joda.time.DateTime.now) }
 
 @*
@@ -10,21 +11,36 @@
  * argument is a `String` with the title of the page, the second
  * argument is an `Html` object containing the body of the page.
  *@
-@main("Welcome to Play", logged_in_user) {
-
-    @*
-     * Get an `Html` object by calling the built-in Play welcome
-     * template and passing a `String` message.
-     *@
-
+@main("Trips that you always wanted") {
     <div class="row">
         <div class="col-md-4">
-            @partial.add_trip(new_trip, logged_in_user)
+            @partial.add_trip(new_trip, flash)
         </div>
         <div class="col-md-8" id="trips">
-            <div class="row">
+            <div class="row search-filter">
 
-                @trips.map { trip => @partial.trip(trip, logged_in_user) }
+                <div class="pull-left">
+                    <div class="dropdown">
+                        <button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                            All
+                            <span class="caret"></span>
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
+                            <li><a href="@routes.HomeController.index("all")">All</a></li>
+                            @for(label <- Trip.labels){
+                                <li><a href="@routes.HomeController.index(label._1)">@label._2</a></li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="pull-right">
+                    <input type="text" name="search" id="search" class = "form-control" placeholder="Search for your dream trip" />
+                </div>
+            </div>
+
+            <div class="row">
+                @trips.map { trip => @partial.trip(trip) }
 
             </div>
         </div>

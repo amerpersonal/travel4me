@@ -9,7 +9,7 @@ $(document).ready(function(){
 
 
         var labels = $("#check_labels input:checkbox:checked").map(function(){
-            return $(this).attr("name").split("_").map(function(item){
+            return $(this).attr("value").split("_").map(function(item){
                 return item[0].toUpperCase() + item.substring(1, item.length);
             }).join(" ");
         });
@@ -105,5 +105,12 @@ $(document).ready(function(){
                }
        });
     });
+
+    $("#image_upload img").click(function(){
+        var src = $(this).attr("src");
+        $("#image_to_remove").val(src);
+
+        $("form#remove_trip_img").submit();
+    })
 
 });

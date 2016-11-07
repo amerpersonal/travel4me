@@ -1,8 +1,11 @@
-@(trip: Trip, logged_in_user: User = null)
-@import helpers.CustomHtmlHelpers._
+@(trip: Trip, flash: Flash)(implicit request: Request[Any])
 
+@import helpers.SessionHelper._
+
+@logged_in_user = @{loggedInUser(request)}
 @form_action = @{ if(trip.isNew) routes.TripsController.create else routes.TripsController.change(trip.id.get) }
 @form_id = @{ if(trip.isNew) "add_trip" else "edit_trip" }
+@img_container_class = @{ if(trip.isNew) "form-group hide" else "form-group" }
 
 <div class="well">
     @helper.form(action = form_action, 'id -> form_id, 'enctype -> "multipart/form-data") {
@@ -15,13 +18,13 @@
             <textarea class="form-control" rows="5" name="description" id="description" placeholder="Describe your trip">@trip.description</textarea>
         </div>
 
-        <div class="form-group" id="check_labels" name="check_labels">
+        <div class="form-group" id="check_labels">
             <label>What was your travel about</label><br/>
             @for((label, label_name) <- Trip.labels){
-                @if(trip.hasLabel(label_name)){
-                    <input type="checkbox" name="@label" checked /> @label_name
+                @if(trip.hasLabel(label)){
+                    <input type="checkbox"  name="check_labels" value="@label" checked /> @label_name
                 } else {
-                    <input type="checkbox" name="@label"/> @label_name
+                    <input type="checkbox"  name="check_labels" value="@label"/> @label_name
                 }
             }
 
@@ -33,18 +36,14 @@
             <input type="hidden" name="labels" id="labels" />
         </div>
 
-            @if(trip.isNew){
-            <div class="form-group hide" id="image_upload">
-                } else {
-                <div class="form-group" id="image_upload">
-                }
+        <div class="@img_container_class" id="image_upload">
             <label for="image">Upload image from trip</label>
             <input type="file" name="image" id="image" />
 
             @trip.image_collection match {
                 case Some(images) => {
                     @for(image <- images){
-                        <img src="@image" width="48" height="48" />
+                        <img src="@image" width="48" height="48" title="Click to remove" data-toggle="tooltip" />
                     }
                 }
                 case None => {}
@@ -75,8 +74,19 @@
 
         <div class="row">
             <span class="text-success" id="success_message"></span>
-            <span class="text-danger" id="error_message"></span>
+            <span class="text-danger" id="error_message">
+                @{
+                flash.get("error") match {
+                    case Some(err) => <div class="text-error">{ err }</div>
+                    case None => {}
+                }
+            }
+            </span>
         </div>
     }
+
+    <form id="remove_trip_img" method="post" action="@routes.TripsController.removeImage(trip.id.get)">
+        <input type="hidden" name="image_to_remove" id="image_to_remove" />
+    </form>
 </div>
 

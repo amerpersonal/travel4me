@@ -4,11 +4,13 @@
  * two arguments, a `String` for the title of the page and an `Html`
  * object to insert into the body of the page.
  *@
-@(title: String, logged_in_user: User = null)(content: Html)(implicit request: Request[Any])
+@import helpers.SessionHelper._
 
-@vs = @{helpers.SessionHelpers.verificationString(request)}
-@logout_link = @{routes.LoginController.logout + "?p=" + helper.urlEncode(vs)}
+@(title: String)(content: Html)(implicit request: Request[Any])
+
+@logout_link = @{routes.LoginController.logout + "?p=" + helper.urlEncode(verificationString(request))}
 @mail_to = @{views.html.helper.urlEncode("amer.zildzic@gmail.com")}
+@logged_in_user = @{loggedInUser(request)}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -26,6 +28,7 @@
 
     </head>
     <body>
+
         <nav class="navbar navbar-default navbar-static-top">
             <div class="container">
                 <div class="navbar-header">
