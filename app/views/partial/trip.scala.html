@@ -5,7 +5,7 @@
 
 @logged_in_user = @{loggedInUser(request)}
 
-<div class="col-md-4 trip" id="@trip.id.get">
+<div class="col-md-3 trip" id="@trip.id.get">
     <div class="thumbnail"  id="@trip.id.get">
         @logged_in_user match {
             case user: User => {
@@ -23,10 +23,12 @@
             case _ => {}
         }
 
-        <a href="#"><img src="@trip.image_collection.get.head" /></a>
+        @if(!trip.image_collection.get.isEmpty){
+            <a href="#" class="open-trip"><img src="@trip.image_collection.get.head" /></a>
+        }
         <div class="caption">
-            <a href="#"><h4>@trip.title</h4></a>
-            <p>@stripText(trip.description, 40)</p>
+            <a href="#" class="open-trip"><h4>@trip.title</h4></a>
+            <!--<p>@stripText(trip.description, 40)</p>-->
 
         </div>
 

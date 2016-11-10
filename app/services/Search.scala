@@ -39,7 +39,7 @@ class Search {
 
     val request_filters: List[QueryDefinition] = filters.map(kv => termQuery(kv._1, kv._2)).toList
 
-    val queries = request_queries ::: default_queries ::: request_filters
+    val queries = List(should(request_queries)) ::: default_queries ::: request_filters
 
     val sorts: List[SortDefinition] = options.get("sort") match {
       case Some(vals) => vals.asInstanceOf[Map[String, String]].toList.map(kv => fieldSort(kv._1).order(if(kv._2 == "desc") SortOrder.DESC else SortOrder.ASC))

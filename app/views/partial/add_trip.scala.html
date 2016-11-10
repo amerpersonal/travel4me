@@ -29,43 +29,57 @@
             }
 
             <div>
-                <small>Or add your specific category</small>
-                <input type="text" class="form-control" name="custom_label" id="custom_label" value="@trip.customLabel" />
+                <small>Or <a href="#" id="show_custom_label">add your specific category</a></small>
+                <input type="text" class="form-control hide" name="custom_label" id="custom_label" value="@trip.customLabel" />
             </div>
 
             <input type="hidden" name="labels" id="labels" />
         </div>
 
-        <div class="@img_container_class" id="image_upload">
-            <label for="image">Upload image from trip</label>
-            <input type="file" name="image" id="image" />
-
-            @trip.image_collection match {
-                case Some(images) => {
-                    @for(image <- images){
-                        <img src="@image" width="48" height="48" title="Click to remove" data-toggle="tooltip" />
-                    }
-                }
-                case None => {}
-            }
-
-        </div>
-
         <div class="form-group">
             @logged_in_user match {
-                case user: User => {
-                    <select id="type" name="type">
-                        @if(trip.public){
-                            <option value="public">Add trip as public</option>
-                            <option value="my">Sign me on this trip</option>
-                        } else {
-                            <option value="my">Sign me on this trip</option>
-                            <option value="public">Add trip as public</option>
-                        }
-                    </select>
+            case user: User => {
+            <select id="type" name="type">
+                @if(trip.public){
+                <option value="public">Add trip as public</option>
+                <option value="my">Sign me on this trip</option>
+                } else {
+                <option value="my">Sign me on this trip</option>
+                <option value="public">Add trip as public</option>
                 }
-                case null => {}
+            </select>
             }
+            case null => {}
+            }
+        </div>
+
+        <!--<span class="text-success" id="success_message"></span>-->
+
+        <div class="@img_container_class row hide" id="image_upload_wrapper">
+            <div class="col-md-12 text-primary" id="image_upload">
+                <label for="image">Upload images from trip</label>
+                <label class="upload-action-wrapper glyphicon glyphicon-upload">
+                    <input type="file" name="image" id="image" style="display: none;" />
+                </label>
+
+                <div class="progress hide" id="upload_progress">
+                    <div class="progress-bar progress-bar-striped active" role="progressbar" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100">
+                        <span class="sr-only">100% Complete</span>
+                    </div>
+                </div>
+
+                <div id="trip_images">
+                    @trip.image_collection match {
+                        case Some(images) => {
+                            @for(image <- images){
+                                <img src="@image" width="48" height="48" title="Click to remove" data-toggle="tooltip" />
+                            }
+                        }
+                        case None => {}
+                    }
+                </div>
+            </div>
+
         </div>
 
         <div class="form-group">
@@ -73,7 +87,6 @@
         </div>
 
         <div class="row">
-            <span class="text-success" id="success_message"></span>
             <span class="text-danger" id="error_message">
                 @{
                 flash.get("error") match {

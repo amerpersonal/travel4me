@@ -19,6 +19,7 @@ POST    /trips                      controllers.TripsController.create
 POST    /trips/browse               controllers.TripsController.browse
 GET     /trips/my                   controllers.TripsController.my(id: String = "")
 GET     /trips/my/:id               controllers.TripsController.my(id: String)
+GET     /trips/:id                  controllers.TripsController.view(id: String)
 POST    /trips/:id                  controllers.TripsController.change(id: String)
 
 GET     /signin                     controllers.LoginController.signin

@@ -76,12 +76,31 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
 
       Logger.info(s"Saving image to path $filepath")
       picture.ref.moveTo(new File(filepath))
+
+      val p = Promise[Result]()
+
       client.execute {
         update id id in "trips/trip" script {
           script("!ctx._source.containsKey(\"image_collection\") ? (ctx._source.image_collection = [fn]) : (ctx._source.image_collection.push(fn))").params("fn" -> s"assets/images/$filename")
         }
+      }.onComplete {
+        case Success(r) => {
+          Trip.find(client, id).onComplete {
+            case Success(t) => p.success(Ok(Json.obj("filename" -> filename, "id" -> t.id.get, "images" -> t.image_collection)))
+            case Failure(ex) => {
+              Logger.error(ex.getMessage)
+              p.success(BadRequest("Error. Try again later"))
+            }
+          }
 
-      }.map(r => Ok(Json.obj("filename" -> filename, "id" -> r.getId)))
+        }
+        case Failure(ex) => {
+          Logger.error(ex.getMessage)
+          p.success(BadRequest("Error. Try again later"))
+        }
+      }
+
+      p.future
 
     }.getOrElse(Future { BadRequest(Json.obj("id" -> id, "error" -> "Missing file")) })
   }
@@ -107,8 +126,9 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
     }
 
     try {
-      val trips: Future[List[Trip]] = Trip.browse(client, query_body)
-      trips.map { r => Ok(Json.toJson(r))}
+      val trips:Future[List[Trip]] = Trip.browse(client, query_body)
+      val f = akka.pattern.after(2.seconds, actorSystem.scheduler)(trips.map { r => Ok(Json.toJson(r))})
+      f
     }
     catch {
       case ex : Throwable => {
@@ -124,7 +144,7 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
     client.execute {
       delete id id from "trips/trip"
     }.onComplete {
-      case Success(r) => p.success(Redirect(routes.HomeController.index("all")))
+      case Success(r) => p.success(Redirect(request.headers("referer")))
       case Failure(ex) => p.success(Redirect(routes.HomeController.index("all")))
     }
 
@@ -208,6 +228,13 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
 
     val timeoutFuture = akka.pattern.after(10.millis, actorSystem.scheduler)(p.future)
     timeoutFuture
+  }
+
+  def view(id: String) = Action.async { implicit  request =>
+    Trip.find(client, id).map(r => r match {
+      case trip: Trip => Ok(Json.toJson(trip))
+      case _ => BadRequest("Not found")
+    })
   }
 
 }

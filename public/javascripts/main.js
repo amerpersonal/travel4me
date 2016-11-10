@@ -1,5 +1,48 @@
 $(document).ready(function(){
     var last_created_id = null;
+    var default_image_path = "/assets/images/default.jpg";
+
+    var delay = (function(){
+      var timer = 0;
+      return function(callback, ms){
+        clearTimeout (timer);
+        timer = setTimeout(callback, ms);
+      };
+    })();
+
+    $("#search").keyup(function(){
+        var term = $(this).val().trim().toLowerCase();
+        var query = {"search" : {"title" : term, "description" : term}, "size" : 30};
+        var label = window.location.pathname.split("/")[1];
+        if(label !== ""){
+            if(query.filter === undefined) query.filter = {};
+            query.filter.labels = label;
+        }
+
+        delay(function(){
+            $("#trips").css({"opacity" : "0.5"});
+            $("#search_spinner").removeClass("hide");
+            $.ajax({
+                url: "/trips/browse",
+                type: "POST",
+                processData: false,
+                contentType: "application/json",
+                data: JSON.stringify(query),
+                success: function(trips){
+                    var trips_html = "";
+                    for(var i = 0; i < trips.length; i++){
+                        trips_html += renderTrip(trips[i]);
+                    }
+
+                    $("#trips").html(trips_html);
+                    $("#trips").css({"opacity" : "1"});
+                    $("#search_spinner").addClass("hide");
+                    $("#trip_show").html("");
+                }
+            })
+        }, 350)
+    });
+
     $("form#add_trip").submit(function(){
         var url = $(this).attr("action");
         var fd = new FormData();
@@ -31,17 +74,19 @@ $(document).ready(function(){
                 processData: false,
                 contentType: "application/json",
                 success: function(res){
-                    $("#success_message").removeClass("hide").html("Trip added. Thanks for contributing");
+//                    $("#success_message").removeClass("hide").html("Trip added. Thanks for contributing");
+
                     $("#error_message").addClass("hide");
-                    $("#image_upload").removeClass("hide");
+                    $("#image_upload_wrapper").removeClass("hide");
                     last_created_id = res.id;
 
                     getAndRenderTrips();
+                    $("#upload_progress").addClass("hide");
                 },
                 error: function(jqXHR, textStatus, errorThrown ){
                     $("#error_message").removeClass("hide").html(jqXHR.responseText);
-                    $("#success_message").addClass("hide");
-                    $("#image_upload").addClass("hide");
+//                    $("#success_message").addClass("hide");
+                    $("#image_upload_wrapper").addClass("hide");
                 }
         });
         return false;
@@ -49,23 +94,21 @@ $(document).ready(function(){
 
     var trips_per_row = 0;
     function getAndRenderTrips(){
-
-
             $.ajax({
                 url: "/trips/browse",
                 type: "POST",
-                data: JSON.stringify({"sort" : {"updated_timestamp" : "desc"}}),
+                data: JSON.stringify({"sort" : {"updated_timestamp" : "desc"}, "size" : 30}),
                 processData: false,
                 contentType: "application/json",
                 success: function(trips){
                     $("#trips").html("");
                     var index = 0;
 
-                    var trips_html = '<div class="row">';
+//                    var trips_html = '<div class="row">';
                     for(var i = 0; i < trips.length; i++){
                         trips_html += renderTrip(trips[i]);
                     }
-                    trips_html += '<div>';
+//                    trips_html += '<div>';
                     $("#trips").html(trips_html);
                 }
             });
@@ -73,11 +116,11 @@ $(document).ready(function(){
     }
 
     function renderTrip(trip){
-        var html = '<div class="col-md-4 trip">' +
+        var html = '<div class="col-md-3 trip" id="' + trip.id + '">' +
                         '<div class="thumbnail">' +
-                            '<a href="#"><img src="' + trip.image_collection[0] + '" /></a>' +
+                            '<a href="#" class="open-trip"><img src="' + trip.image_collection[0] + '" /></a>' +
                             '<div class="caption">' +
-                               '<a href="#"><h4>' + trip.title + '</h4></a>' +
+                               '<a href="#" class="open-trip"><h4>' + trip.title + '</h4></a>' +
                                 '<p>' + trip.description + '</p>' +
                             '</div>' +
                         '</div>' +
@@ -91,6 +134,8 @@ $(document).ready(function(){
        var fd = new FormData();
        fd.append("image", $("#image")[0].files[0]);
 
+       $("#upload_progress").removeClass("hide");
+       $("#upload_progress .progress-bar").css({"width" : "50%"});
        $.ajax({
                url: "/trips/" + last_created_id + "/upload",
                type: "POST",
@@ -98,7 +143,8 @@ $(document).ready(function(){
                processData: false,
                contentType: false,
                success: function(res){
-
+                    renderTripImagesSmall(res.images);
+                    $("#upload_progress .progress-bar").css({"width" : "100%"});
                },
                error: function(jqXHR, textStatus, errorThrown ){
 
@@ -106,11 +152,107 @@ $(document).ready(function(){
        });
     });
 
+    function renderTripImagesSmall(images){
+        var html = "";
+        for(var i = 0; i < images.length; i++){
+            if(images[i] !== default_image_path) html += formImage(images[i]);
+        }
+
+        $("#trip_images").html(html);
+    }
+
+    setInterval(function(){
+        if($("#trip_images").html().trim() !== ""){
+            $.ajax({
+                url: "/trips/" + last_created_id,
+                type: "GET",
+                success: function(res){
+                    renderTripImagesSmall(res.image_collection);
+                }
+            });
+        }
+    }, 500);
+
     $("#image_upload img").click(function(){
         var src = $(this).attr("src");
         $("#image_to_remove").val(src);
 
         $("form#remove_trip_img").submit();
     })
+
+    $("#show_custom_label").click(function(){
+        if($("#custom_label").hasClass("hide")) $("#custom_label").removeClass("hide")
+        else $("#custom_label").addClass("hide");
+    })
+
+    $("#trips").on("click", ".open-trip", function(){
+    alert("click");
+        var trip_id = $(this).closest(".trip").attr("id");
+
+
+        $.ajax({
+            url: "/trips/" + trip_id,
+            type: "GET",
+            success: function(trip){
+                console.log(trip);
+
+                $("#trips").html("");
+                $("#trip_show").removeClass("hide");
+
+                $("#trip_show .carousel-indicators").html(formCarouselPoints($("#trip_show"), trip));
+                $("#trip_show .carousel-inner").html(formCarouselItems(trip));
+
+                $('#trip_show').find('.item').first().addClass('active');
+                $('#trip_show').find('li').first().addClass('active');
+                $('.carousel').carousel({interval: 9000});
+            },
+            error: function(jqXHR, textStatus, errorThrown){
+            }
+        });
+
+
+
+    });
+
+
+    function formCarouselItems(trip){
+        var html = "";
+        for(var i = 0; i < trip.image_collection.length; i++){
+            console.log(trip.image_collection[i])
+            html += formCarouselItem(trip, i);
+        }
+        return html;
+    }
+
+    function formCarouselItem(trip, index){
+//        var img = $('<img src="' + trip.image_collection[index] + '">');
+
+        var caption_html = '<div class="carousel-caption pull-left">' +
+                           '<h4>' + trip.title + '</h4>' +
+                           '<p>' + trip.description + '</p>' +
+                           '</div>';
+
+        var html = '<div class="item">' +
+                    '<img src="' + trip.image_collection[index] + '">' + caption_html +
+                    '</div>';
+
+
+        return html;
+    }
+
+    function formCarouselPoints(container, trip){
+        var container_id = container.attr("id");
+        var html = "";
+        for(var i = 0; i < trip.image_collection.length; i++){
+            html += '<li data-target="#' + container_id + '" data-slide-to="' + (i+1) + '"></li>';
+        }
+
+        return html;
+    }
+
+    function formImage(image){
+        var html = "<img src=\"" + image + "\" width=\"48\" height=\"48\" title=\"Click to remove\" data-toggle=\"tooltip\" class=\"small-image\" />";
+        return html;
+    }
 
 });

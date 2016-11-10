@@ -19,6 +19,10 @@ signin-container {
     margin-bottom: 10px;
 }
 
+.trip {
+    height: 220px;
+}
+
 .trip img {
     max-height: 120px;
 }
@@ -40,12 +44,41 @@ signin-container {
     cursor: pointer;
 }
 
-.search-filter {
+#search_filter_bar {
     padding: 0 15px 10px 15px;
+    padding-top: 10px;
+    margin: 0 0 10px 0;
+     background-color: #888;
 }
 
 #search {
-    width: 200px;
+    width: 300px;
+    background: transparent;
+    border-width: 0 0 1px 0;
+    color: white;
+    height: 34px;
+    fint-size: 1.2em;
+}
+
+#search_spinner {
+    position: fixed;
+    z-index: 20;
+    top: 30%;
+    left: 50%;
+}
+
+#search_spinner img {
+    width: 150px;
+    height: 150px;
+}
+
+#categories_select {
+    width: 300px;
+}
+
+#categories_select button, #categories_select ul {
+    width: 100%;
+    text-align: left;
 }
 
 .remove-btn {
@@ -58,4 +91,44 @@ signin-container {
 .remove-form {
     display: inline-block;
     padding: 0;
+}
+
+.upload-action-wrapper {
+    font-size: 2em;
+    top: 10px;
+}
+
+.upload-action-wrapper:hover {
+    cursor: pointer;
+}
+
+#upload_progress {
+    margin-top: 10px;
+}
+
+#upload_progress .progress-bar {
+    width: 50%;
+}
+
+img.small-image {
+    margin-right: 5px;
+}
+
+.navbar {
+    margin-bottom: 5px;
+}
+
+#trip_show img {
+    height: 600px;
+    float: none;
+    margin: 0 auto;
+}
+
+#trip_show .carousel-caption {
+    background: #666;
+    opacity: 0.8;
+    text-align: left;
+    left: 0;
+    right: 0;
+    padding-left: 20px;
 }

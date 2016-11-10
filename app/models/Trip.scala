@@ -13,6 +13,7 @@ import play.api.Logger
 import scala.util.Try
 import javax.inject.Inject
 import play.cache.CacheApi
+import scala.util.{Success, Failure}
 
 /**
   * Created by amer.zildzic on 9/21/16.
@@ -63,6 +64,7 @@ case class Trip (var id: Option[String] = None,
 }
 
 object Trip extends Search {
+  val formatter: DateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss Z")
   var default_image_path: String = null
 
   def set_default_image(path: String) = {
@@ -110,7 +112,6 @@ object Trip extends Search {
   }
 
   implicit object HitAsTrip extends HitAs[Trip] {
-    val formatter: DateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss Z");
 
     override def as(hit: RichSearchHit): Trip = {
       val source = hit.getSource
@@ -138,14 +139,50 @@ object Trip extends Search {
     }
   }
 
+  def getToTrip(hit: RichGetResponse): Trip = {
+    val fields = hit.getFields
+
+    val user_id: Option[String] = fields.get("user_id") match {
+      case value: AnyRef => Some(value.getValue.toString)
+      case _ => None
+    }
+
+    val labels = fields.get("labels") match {
+      case labels: AnyRef => labels.getValues.toArray.map(x => x.toString).toList
+      case _ => List()
+    }
+
+    val images: List[String] = fields.get("image_collection") match {
+      case imgs:AnyRef => imgs.getValues.toArray.map(x => x.toString).toList
+      case _ => List(default_image_path)
+    }
+
+    val updated = formatter.parseDateTime(fields.get("updated_timestamp").getValue.toString)
+
+    Trip(Some(hit.getId), fields.get("title").getValue.toString, fields.get("description").getValue.toString,
+      fields.get("public").getValue.asInstanceOf[Boolean], user_id, Some(labels), Some(images), updated)
+  }
+
   def labels: Map[String, String] = Map("summer_vacation" -> "Summer Vacation", "city_travel" -> "City Travel", "antropology" -> "Antropology")
 
   def notEmpty(implicit r:Reads[String]):Reads[String] = Reads.filterNot(ValidationError("validate.error.unexpected.value", ""))(_.trim().eq(""))
 
   def browse(client: ElasticClient, options: Map[String, Object]): Future[List[Trip]] = {
+    var search_opts = options
+    if(search_opts.get("filter") != None){
+      var filter = search_opts.get("filter").get.asInstanceOf[Map[String, String]]
+      if(filter.get("labels") != None){
+        val label = filter.get("labels").get
+
+        if(Trip.labels.get(label) != None) filter = filter.updated("labels", Trip.labels.get(label).get)
+      }
+
+      search_opts = search_opts.updated("filter", filter)
+    }
+
     client.execute {
       val default_queries = List(must(existsQuery("title")))
-      val sr = prepare_search(options, default_queries)
+      val sr = prepare_search(search_opts, default_queries)
       Logger.debug(sr.toString())
       sr
     }.map(r => r.as[Trip].toList)
@@ -155,6 +192,15 @@ object Trip extends Search {
     client.execute {
       search in "trips/trip" query(termQuery("user_id", user_id))
     }.map(res => res.as[Trip].toList)
+  }
+
+  def find(client: ElasticClient, id: String): Future[Trip] = {
+    client.execute {
+      get id id from "trips/trip" fields("title", "description", "public", "user_id", "labels", "image_collection", "updated_timestamp")
+    }.map(r => {
+      if(r.isExists) getToTrip(r)
+      else throw new Exception("Error")
+    })
   }
 
 }

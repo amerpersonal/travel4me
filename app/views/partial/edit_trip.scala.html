@@ -1,0 +1,92 @@
+@(trip: Trip, flash: Flash)(implicit request: Request[Any])
+
+@import helpers.SessionHelper._
+
+@logged_in_user = @{loggedInUser(request)}
+@form_action = @{ if(trip.isNew) routes.TripsController.create else routes.TripsController.change(trip.id.get) }
+@form_id = @{ if(trip.isNew) "add_trip" else "edit_trip" }
+@img_container_class = @{ if(trip.isNew) "form-group hide" else "form-group" }
+
+<div class="well">
+    @helper.form(action = form_action, 'id -> form_id, 'enctype -> "multipart/form-data") {
+    <h3 class="form-heading">Share your trip experience</h3>
+
+    <div class="form-group">
+        <input type="text" class="form-control" placeholder="Name your trip" name="title" id="title" value="@trip.title"/>
+    </div>
+    <div class="form-group">
+        <textarea class="form-control" rows="5" name="description" id="description" placeholder="Describe your trip">@trip.description</textarea>
+    </div>
+
+    <div class="form-group" id="check_labels">
+        <label>What was your travel about</label><br/>
+        @for((label, label_name) <- Trip.labels){
+        @if(trip.hasLabel(label)){
+        <input type="checkbox"  name="check_labels" value="@label" checked /> @label_name
+        } else {
+        <input type="checkbox"  name="check_labels" value="@label"/> @label_name
+        }
+        }
+
+        <div>
+            <small>Or add your specific category</small>
+            <input type="text" class="form-control" name="custom_label" id="custom_label" value="@trip.customLabel" />
+        </div>
+
+        <input type="hidden" name="labels" id="labels" />
+    </div>
+
+    <div class="@img_container_class" id="image_upload">
+        <label for="image">Upload image from trip</label>
+        <input type="file" name="image" id="image" />
+
+        @trip.image_collection match {
+        case Some(images) => {
+        @for(image <- images){
+        <img src="@image" width="48" height="48" title="Click to remove" data-toggle="tooltip" />
+        }
+        }
+        case None => {}
+        }
+
+    </div>
+
+    <div class="form-group">
+        @logged_in_user match {
+        case user: User => {
+        <select id="type" name="type">
+            @if(trip.public){
+            <option value="public">Add trip as public</option>
+            <option value="my">Sign me on this trip</option>
+            } else {
+            <option value="my">Sign me on this trip</option>
+            <option value="public">Add trip as public</option>
+            }
+        </select>
+        }
+        case null => {}
+        }
+    </div>
+
+    <div class="form-group">
+        <input type="submit" class="btn btn-primary" value="Contribute" />
+    </div>
+
+    <div class="row">
+        <span class="text-success" id="success_message"></span>
+        <span class="text-danger" id="error_message">
+                @{
+                flash.get("error") match {
+                    case Some(err) => <div class="text-error">{ err }</div>
+                    case None => {}
+                }
+            }
+            </span>
+    </div>
+    }
+
+    <form id="remove_trip_img" method="post" action="@routes.TripsController.removeImage(trip.id.get)">
+        <input type="hidden" name="image_to_remove" id="image_to_remove" />
+    </form>
+</div>
+

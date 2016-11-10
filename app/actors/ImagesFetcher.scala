@@ -20,6 +20,7 @@ import play.api.libs.concurrent.AkkaGuiceSupport
 import play.api.libs.json._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
+import models.Trip
 
 /**
   * Created by amer.zildzic on 10/5/16.
@@ -29,18 +30,18 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
 
   implicit val formats = org.json4s.DefaultFormats
 
-  implicit object TripHitAs extends HitAs[Trip] {
-    override def as(hit: RichSearchHit): Trip = {
-      val source = hit.getSource
-
-      val user_id: Option[String] = source.get("user_id") match {
-        case Some(userid) => Some(userid.toString)
-        case _ => None
-      }
-      Trip(Some(hit.getId), source.get("title").toString, source.get("description").toString,
-        source.get("public").asInstanceOf[Boolean], user_id, Some(source.get("labels").asInstanceOf[java.util.ArrayList[String]].asScala.toList))
-    }
-  }
+//  implicit object TripHitAs extends HitAs[Trip] {
+//    override def as(hit: RichSearchHit): Trip = {
+//      val source = hit.getSource
+//
+//      val user_id: Option[String] = source.get("user_id") match {
+//        case Some(userid) => Some(userid.toString)
+//        case _ => None
+//      }
+//      Trip(Some(hit.getId), source.get("title").toString, source.get("description").toString,
+//        source.get("public").asInstanceOf[Boolean], user_id, Some(source.get("labels").asInstanceOf[java.util.ArrayList[String]].asScala.toList))
+//    }
+//  }
 
   private lazy val client = ef(cs)
   private val base_url = config.underlying.getString("flickr.search_url")
@@ -52,9 +53,9 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
   case class ImagesFetched(trip_id: String, images: Seq[String])
 
   val scheduler = context.system.scheduler.schedule(
-    initialDelay = 10.minutes,
+    initialDelay = 1.minutes,
     message = FetchSearchTerms,
-    interval = 5.minute,
+    interval = 2.minutes,
     receiver = self
   )(executionContext)
 
@@ -66,6 +67,8 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
   }
 
   def fetchImages(trip: Trip) = {
+    System.out.println(s"fetch for trip $trip")
+
     val term: String = trip.title
     val terms: List[String] = term.split(" ").toList.flatMap { _.trim.split(",").map(_.trim) }
     val terms_string = terms.mkString(",")
@@ -89,7 +92,9 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
           case _ => List.empty[String]
         }
 
-        val images = old_images ::: (for (photo <- photos.asInstanceOf[List[Map[String, String]]]) yield urlForPhoto(photo)).toList
+        System.out.println(s"old images $old_images")
+        val images = old_images ::: (for (photo <- photos.asInstanceOf[List[Map[String, String]]]) yield urlForPhoto(photo))
+        System.out.println(s"images: $images")
 
         client.execute {
           update id trip.id.get in "trips/trip" doc(("image_collection", images))
