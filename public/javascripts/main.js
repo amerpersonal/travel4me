@@ -104,12 +104,14 @@ $(document).ready(function(){
                     $("#trips").html("");
                     var index = 0;
 
-//                    var trips_html = '<div class="row">';
+                    var trips_html = '';
                     for(var i = 0; i < trips.length; i++){
                         trips_html += renderTrip(trips[i]);
                     }
-//                    trips_html += '<div>';
                     $("#trips").html(trips_html);
+
+                    $("#search_spinner").addClass("hide");
+                    $("#trips").css({"opacity" : "1"});
                 }
             });
 
@@ -186,16 +188,12 @@ $(document).ready(function(){
     })
 
     $("#trips").on("click", ".open-trip", function(){
-    alert("click");
         var trip_id = $(this).closest(".trip").attr("id");
-
 
         $.ajax({
             url: "/trips/" + trip_id,
             type: "GET",
             success: function(trip){
-                console.log(trip);
-
                 $("#trips").html("");
                 $("#trip_show").removeClass("hide");
 
@@ -214,6 +212,14 @@ $(document).ready(function(){
 
     });
 
+    $("#trip_show").on("click", ".close-trip", function(){
+        $("#trip_show").addClass("hide");
+        $("#trips").css({"opacity" : "0.5"});
+        $("#search_spinner").removeClass("hide");
+        getAndRenderTrips();
+
+    });
+
 
     function formCarouselItems(trip){
         var html = "";
@@ -225,10 +231,8 @@ $(document).ready(function(){
     }
 
     function formCarouselItem(trip, index){
-//        var img = $('<img src="' + trip.image_collection[index] + '">');
-
         var caption_html = '<div class="carousel-caption pull-left">' +
-                           '<h4>' + trip.title + '</h4>' +
+                           '<h4 class="text-uppercase">' + trip.title + '</h4>' +
                            '<p>' + trip.description + '</p>' +
                            '</div>';
 
@@ -238,6 +242,13 @@ $(document).ready(function(){
 
 
         return html;
+    }
+
+    function formCarouselCaption(trip){
+       var html = '<h4>' + trip.title + '</h4>' +
+       '<p>' + trip.description + '</p>';
+
+       return html;
     }
 
     function formCarouselPoints(container, trip){

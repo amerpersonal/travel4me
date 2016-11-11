@@ -30,22 +30,10 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
 
   implicit val formats = org.json4s.DefaultFormats
 
-//  implicit object TripHitAs extends HitAs[Trip] {
-//    override def as(hit: RichSearchHit): Trip = {
-//      val source = hit.getSource
-//
-//      val user_id: Option[String] = source.get("user_id") match {
-//        case Some(userid) => Some(userid.toString)
-//        case _ => None
-//      }
-//      Trip(Some(hit.getId), source.get("title").toString, source.get("description").toString,
-//        source.get("public").asInstanceOf[Boolean], user_id, Some(source.get("labels").asInstanceOf[java.util.ArrayList[String]].asScala.toList))
-//    }
-//  }
-
   private lazy val client = ef(cs)
   private val base_url = config.underlying.getString("flickr.search_url")
   private val api_key = config.underlying.getString("flickr.api_key")
+  private val default_img = config.underlying.getString("general.default_img_path") + "/" + config.underlying.getString("general.default_img")
 
 
   case class FetchSearchTerms()
@@ -55,7 +43,7 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
   val scheduler = context.system.scheduler.schedule(
     initialDelay = 1.minutes,
     message = FetchSearchTerms,
-    interval = 2.minutes,
+    interval = 1.minutes,
     receiver = self
   )(executionContext)
 
@@ -77,6 +65,7 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
 
     val term_encoded = views.html.helper.urlEncode(terms_string)
     val url = s"$base_url&api_key=$api_key&tags=$term_encoded"
+    println(s"url: $url")
     val images_json = Source.fromURL(url).mkString.replace("jsonFlickrApi(", "").dropRight(1)
 
     val images_details: Map[String, Any] = parse(images_json).extract[Map[String, Any]].get("photos") match {
@@ -88,7 +77,7 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
     images_details.get("photo") match {
       case Some(photos) => {
         val old_images = trip.image_collection match {
-          case Some(coll) => coll
+          case Some(coll) => coll.filter(img => img != default_img)
           case _ => List.empty[String]
         }
 
@@ -110,7 +99,23 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
   }
 
   def urlForPhoto(photo: Map[String, String]): String = {
-    "https://farm" + photo("farm") + ".staticflickr.com/" + photo("server") + "/" + photo("id") + "_" + photo("secret") + ".jpg"
+    val photo_id = photo("id")
+    val sizes_url = s"https://api.flickr.com/services/rest/?method=flickr.photos.getSizes&api_key=$api_key&photo_id=$photo_id&format=json&nojsoncallback=1"
+
+    val sizes_str = Source.fromURL(sizes_url).mkString
+    val sizes_details: Map[String, Any] = parse(sizes_str).extract[Map[String, Any]].get("sizes") match {
+      case Some(vals) => vals.asInstanceOf[Map[String, Any]]
+      case None => Map.empty[String, Any]
+    }
+
+    val sizes: List[Map[String, Any]] = sizes_details.get("size") match {
+      case Some(vals) => vals.asInstanceOf[List[Map[String, String]]]
+      case None => List()
+    }
+
+    val source = if(! sizes.isEmpty) sizes.last("source").toString else "https://farm" + photo("farm") + ".staticflickr.com/" + photo("server") + "/" + photo("id") + "_" + photo("secret") + ".jpg"
+
+    source
   }
 
   def fetchSearchTerms(): Unit = {

@@ -68,8 +68,8 @@ signin-container {
 }
 
 #search_spinner img {
-    width: 150px;
-    height: 150px;
+    width: 100px;
+    height: 100px;
 }
 
 #categories_select {
@@ -119,16 +119,32 @@ img.small-image {
 }
 
 #trip_show img {
-    height: 600px;
-    float: none;
-    margin: 0 auto;
+    height: 650px;
 }
 
 #trip_show .carousel-caption {
     background: #666;
-    opacity: 0.8;
+    opacity: 0.5;
     text-align: left;
     left: 0;
     right: 0;
     padding-left: 20px;
+}
+
+.carousel-caption {
+    color: white;
+    opacity: 1;
+}
+
+.carousel-caption p {
+    padding-let: 20px;
+}
+
+.close-trip {
+    font-size: 1.5em;
+    position: absolute;
+    top: 20px;
+    right: 100px;
+    color: #333;
+    z-index: 20;
 }

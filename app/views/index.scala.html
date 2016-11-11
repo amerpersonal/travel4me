@@ -48,28 +48,15 @@
                 @trips.map { trip => @partial.trip(trip) }
             </div>
 
-            <div id="trip_show" class="carousel slide hide" data-ride="carousel">
+            <div id="trip_show" class="carousel slide hide" data-ride="carousel" class="hide">
+                <a href="#" class="glyphicon glyphicon-remove close-trip"></a>
+
                 <!-- Indicators -->
                 <ol class="carousel-indicators">
-                    <!--<li data-target="#trip_show" data-slide-to="0" class="active"></li>-->
-                    <!--<li data-target="#trip_show" data-slide-to="1"></li>-->
-                    <!--<li data-target="#trip_show" data-slide-to="2"></li>-->
                 </ol>
 
                 <!-- Wrapper for slides -->
                 <div class="carousel-inner" role="listbox">
-                    <!--<div class="item active">-->
-                        <!--<img src="@trips.head.image_collection.get.head">-->
-                        <!--<div class="carousel-caption">-->
-                            <!--@trips.head.title-->
-                        <!--</div>-->
-                    <!--</div>-->
-                    <!--<div class="item">-->
-                        <!--<img src="@trips.head.image_collection.get.tail.head">-->
-                        <!--<div class="carousel-caption">-->
-                            <!--@trips.head.title-->
-                        <!--</div>-->
-                    <!--</div>-->
                 </div>
 
                 <!-- Controls -->
@@ -82,6 +69,7 @@
                     <span class="sr-only">Next</span>
                 </a>
             </div>
+
         </div>
     </div>
 
