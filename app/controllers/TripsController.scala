@@ -33,38 +33,48 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
     request.body.validate[Trip] match {
       case t: JsSuccess[Trip] => {
         val trip: Trip = t.get
-        try {
-          val p = Promise[Result]
 
-          client.execute {
-            index into "trips/trip" id UUID.randomUUID() fields(
-              "title" -> trip.title,
-              "description" -> trip.description,
-              "labels" -> trip.labels.getOrElse(None),
-              "created_timestamp" -> DateTime.now.toString("y-M-d H:m:s Z"),
-              "updated_timestamp" -> DateTime.now.toString("y-M-d H:m:s Z"),
-              "user_id" -> (loggedInUser(request) match {
-                case user: User => user.id.get
-                case null => null
-              }),
-              "public" -> (loggedInUser(request) == null || trip.public)
-              )
-          }.onComplete {
-            case Success(res) => p.success(Ok(JsObject(List(("id", JsString(res.getId))))))
-            case Failure(ex) => p.success(InternalServerError("Error. Try again later"))
-          }
+        if(trip.endDate.isAfter(trip.startDate.getMillis)) {
+          try {
+            val p = Promise[Result]
 
-          val timeoutFuture = akka.pattern.after(60.millis, actorSystem.scheduler)(p.future)
-          timeoutFuture
-
-        }
-        catch {
-            case _ : Throwable => {
-              Future { InternalServerError("Error. Try again later") }
+            client.execute {
+              index into "trips/trip" id UUID.randomUUID() fields(
+                "title" -> trip.title,
+                "description" -> trip.description,
+                "labels" -> trip.labels.getOrElse(None),
+                "start_date" -> trip.startDate.toLocalDateTime.toString("y-M-d H:m:s Z"),
+                "end_date" -> trip.endDate.toLocalDateTime.toString("y-M-d H:m:s Z"),
+                "created_timestamp" -> DateTime.now.toString("y-M-d H:m:s Z"),
+                "updated_timestamp" -> DateTime.now.toString("y-M-d H:m:s Z"),
+                "user_id" -> (loggedInUser(request) match {
+                  case user: User => user.id.get
+                  case null => null
+                }),
+                "public" -> (loggedInUser(request) == null || trip.public)
+                )
+            }.onComplete {
+              case Success(res) => p.success(Ok(JsObject(List(("id", JsString(res.getId))))))
+              case Failure(ex) => p.success(InternalServerError("Error. Try again later"))
             }
+
+            val timeoutFuture = akka.pattern.after(60.millis, actorSystem.scheduler)(p.future)
+            timeoutFuture
+
+          }
+          catch {
+            case _: Throwable => {
+              Future {
+                InternalServerError("Error. Try again later")
+              }
+            }
+          }
+        }
+        else {
+          Future { BadRequest("End date has to be after start date") }
         }
     }
-      case e: JsError => Future { BadRequest("Trip title and description have to be provided") }
+      case e: JsError => Future { BadRequest("Trip title, description, start and end time have to be provided") }
     }
 
   }
@@ -167,7 +177,7 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
     val labels = pred_labels ++ custom_label
     val public = request.body.asMultipartFormData.get.asFormUrlEncoded.get("type").getOrElse(Vector("")).head == "public"
 
-    val trip = Trip(Some(id), title, description, public, loggedInUser(request).id, Some(labels.toList), None, org.joda.time.DateTime.now)
+    val trip = Trip(Some(id), title, description, public, org.joda.time.DateTime.now,  org.joda.time.DateTime.now, loggedInUser(request).id, Some(labels.toList), None, org.joda.time.DateTime.now)
 
     if(trip.isValid) {
       val p = Promise[Result]()
@@ -191,7 +201,7 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
 
     }
     else {
-      Future { Redirect(routes.TripsController.my(id)).flashing("error" -> "Title and description needs to be provided") }
+      Future { Redirect(routes.TripsController.my(id)).flashing("error" -> "Title, description, start and end date needs to be provided") }
     }
 
 

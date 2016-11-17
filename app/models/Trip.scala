@@ -30,22 +30,26 @@ import org.joda.time.DateTime
 import org.joda.time.format._
 import play.api.cache.Cache
 import org.json4s.jackson.Serialization
+import org.joda.time._
 
 case class Trip (var id: Option[String] = None,
-                val title: String,
-                val description: String,
-                val public: Boolean,
-                val userId: Option[String],
-                val labels: Option[List[String]],
-                val image_collection: Option[List[String]] = None,
-                val updated_timestamp: org.joda.time.DateTime = null) extends Base {
+                 val title: String,
+                 val description: String,
+                 val public: Boolean,
+                 val startDate: org.joda.time.DateTime,
+                 val endDate: org.joda.time.DateTime,
+                 val userId: Option[String],
+                 val labels: Option[List[String]],
+                 val image_collection: Option[List[String]] = None,
+                 val updated_timestamp: org.joda.time.DateTime = null) extends Base {
   val uuid_regex = new Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
   if(id == None) id = Some(UUID.randomUUID().toString)
   // not using this custom validator currently
-  def validate(id: Option[String] = None, title: String, description: String, public: Boolean, labels: Option[List[String]] = None, image_collection: Option[List[String]] = None) = {
+  def validate(id: Option[String] = None, title: String, description: String, public: Boolean, startDate: org.joda.time.DateTime,
+               endDate: org.joda.time.DateTime, labels: Option[List[String]] = None, image_collection: Option[List[String]] = None) = {
     if ((id != None && uuid_regex != id) || title.trim.isEmpty || description.trim.isEmpty) None
-    else Some(Trip(id, title, description, public, None, labels))
+    else Some(Trip(id, title, description, public, startDate, endDate, None, labels))
   }
 
   def isValid: Boolean = (id == None || uuid_regex.pattern.matcher(id.get).matches) && !title.trim.isEmpty && !description.trim.isEmpty
@@ -68,6 +72,8 @@ case class Trip (var id: Option[String] = None,
 
 object Trip extends Search {
   val formatter: DateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss Z")
+  val formDateFormatter: DateTimeFormatter = DateTimeFormat.forPattern("MM/dd/yyyy")
+  val dateFormatter: DateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd 0:0:0 ")
   var default_image_path: String = null
 
   def set_default_image(path: String) = {
@@ -81,11 +87,13 @@ object Trip extends Search {
         (__ \ "title").read[String](notEmpty) and
         (__ \ "description").read[String](notEmpty) and
         (__ \ "type").readNullable[String].map(v => v.getOrElse("") == "public") and
+        (__ \ "start_date").read[String](validDate).map(formDateFormatter.parseDateTime(_)) and
+        (__ \ "end_date").read[String](validDate).map(formDateFormatter.parseDateTime(_)) and
         (__ \ "user_id").readNullable[String] and
         (__ \ "labels").readNullable[List[String]] and
         (__ \ "image_collection").readNullable[List[String]] and
         Reads.pure(org.joda.time.DateTime.now)
-      )(Trip.apply _)
+      ) (Trip.apply _)
   }
 
   implicit val tripWriter: Writes[Trip] = (
@@ -93,11 +101,13 @@ object Trip extends Search {
       (JsPath \ "title").write[String] and
       (JsPath \ "description").write[String] and
       (JsPath \ "public").write[Boolean] and
+      (JsPath \ "start_date").write[org.joda.time.DateTime] and
+      (JsPath \ "end_date").write[org.joda.time.DateTime] and
       (JsPath \ "user_id").write[Option[String]] and
       (JsPath \ "labels").write[Option[List[String]]] and
       (JsPath \ "image_collection").write[Option[List[String]]] and
       (JsPath \ "updated_timestamp").write[org.joda.time.DateTime]
-    )(unlift(Trip.unapply))
+    ) (unlift(Trip.unapply))
 
   object StringList {
     def apply(labels: List[String]) = {
@@ -137,9 +147,17 @@ object Trip extends Search {
       }
 
       val updated = formatter.parseDateTime(source.get("updated_timestamp").toString)
+      val startDate = source.get("start_date") match {
+        case value: Object => dateFormatter.parseDateTime(value.toString)
+        case _ => org.joda.time.DateTime.now
+      }
+      val endDate = source.get("end_date") match {
+        case value: Object => dateFormatter.parseDateTime(value.toString)
+        case _ => org.joda.time.DateTime.now
+      }
 
       Trip(Some(hit.getId), source.get("title").toString, source.get("description").toString,
-        source.get("public").asInstanceOf[Boolean], user_id, Some(labels), Some(images), updated)
+        source.get("public").asInstanceOf[Boolean], startDate, endDate, user_id, Some(labels), Some(images), updated)
     }
   }
 
@@ -157,19 +175,30 @@ object Trip extends Search {
     }
 
     val images: List[String] = fields.get("image_collection") match {
-      case imgs:AnyRef => imgs.getValues.toArray.map(x => x.toString).toList
+      case imgs: AnyRef => imgs.getValues.toArray.map(x => x.toString).toList
       case _ => List(default_image_path)
     }
 
     val updated = formatter.parseDateTime(fields.get("updated_timestamp").getValue.toString)
+    val startDate = fields.get("start_date") match {
+      case value: Object => dateFormatter.parseDateTime(value.toString)
+      case _ => org.joda.time.DateTime.now
+    }
+    val endDate = fields.get("end_date") match {
+      case value: Object => dateFormatter.parseDateTime(value.toString)
+      case _ => org.joda.time.DateTime.now
+    }
 
     Trip(Some(hit.getId), fields.get("title").getValue.toString, fields.get("description").getValue.toString,
-      fields.get("public").getValue.asInstanceOf[Boolean], user_id, Some(labels), Some(images), updated)
+      fields.get("public").getValue.asInstanceOf[Boolean], startDate, endDate, user_id, Some(labels), Some(images), updated)
   }
 
   def labels: Map[String, String] = Map("summer_vacation" -> "Summer Vacation", "city_travel" -> "City Travel", "antropology" -> "Antropology")
 
-  def notEmpty(implicit r:Reads[String]):Reads[String] = Reads.filterNot(ValidationError("validate.error.unexpected.value", ""))(_.trim().eq(""))
+  def notEmpty(implicit r: Reads[String]): Reads[String] = Reads.filterNot(ValidationError("validate.error.unexpected.value", ""))(_.trim().eq(""))
+
+  def validDate(implicit r: Reads[String]): Reads[String] =
+    (Reads.filterNot(ValidationError("validate.error.unexpected.value", ""))(v => Try(formDateFormatter.parseDateTime(v)).toOption == None))
 
   def browse(client: ElasticClient, options: Map[String, Object]): Future[List[Trip]] = {
     var search_opts = options

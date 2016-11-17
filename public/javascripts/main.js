@@ -71,7 +71,9 @@ $(document).ready(function(){
                     "title" : $("#title").val(),
                     "description" : $("#description").val(),
                     "labels" : labels_arr,
-                    "type" : $("#type").val()
+                    "type" : $("#type").val(),
+                    "start_date" : $("#start_date").val(),
+                    "end_date" : $("#end_date").val()
                 }),
                 processData: false,
                 contentType: "application/json",
@@ -222,6 +224,8 @@ $(document).ready(function(){
 
 
     });
+
+    $(".date").datepicker();
 
     $("#trip_show").on("click", ".close-trip", function(){
         $(".carousel").carousel("pause");

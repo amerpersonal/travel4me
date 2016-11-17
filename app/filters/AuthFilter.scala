@@ -27,7 +27,6 @@ class AuthFilter @Inject()(
     // Run the next filter in the chain. This will call other filters
     // and eventually call the action. Take the result and modify it
     // by adding a new header.
-    println("in filter")
     if (isSessionExpired(requestHeader)) Future.successful(Redirect(requestHeader.path).withNewSession)
     else nextFilter(requestHeader)
   }
