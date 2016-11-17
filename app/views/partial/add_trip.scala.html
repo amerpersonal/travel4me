@@ -18,6 +18,13 @@
             <textarea class="form-control" rows="5" name="description" id="description" placeholder="Describe your trip">@trip.description</textarea>
         </div>
 
+        <div class="form-group">
+            <label>When you traveled</label><br/>
+            <input type="text" class="form-control date" data-provide="datepicker" name="date_from" id="date_from" />
+            <span>&nbsp;&nbsp;to&nbsp;&nbsp;</span>
+            <input type="text" class="form-control date" data-provide="datepicker" name="date_to" id="date_to" />
+        </div>
+
         <div class="form-group" id="check_labels">
             <label>What was your travel about</label><br/>
             @for((label, label_name) <- Trip.labels){
@@ -83,7 +90,9 @@
         </div>
 
         <div class="form-group">
-            <input type="submit" class="btn btn-primary" value="Contribute" />
+            <button type="submit" class="btn btn-primary" data-loading-text="Adding..." id="add_trip_action">Contribute</button>
+            <button type="reset" class="btn btn-default hide" id="reset_trip_action">Add new trip</button>
+            <!--<img class="hide" src="/assets/images/spinner-loading.gif" id="add_trip_spinner" width="32" height="32" />-->
         </div>
 
         <div class="row">

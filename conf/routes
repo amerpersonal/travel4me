@@ -6,6 +6,12 @@
 GET     /                           controllers.HomeController.index(label: String = "all")
 # An example controller showing how to use dependency injection
 GET     /count                      controllers.CountController.count
+
+GET     /signin                     controllers.LoginController.signin
+POST    /login                      controllers.LoginController.login
+GET     /signup                     controllers.LoginController.signup
+POST    /registrate                 controllers.LoginController.registrate
+GET     /logout                     controllers.LoginController.logout
 # An example controller showing how to write asynchronous code
 GET     /:label                     controllers.HomeController.index(label: String)
 
@@ -21,9 +27,3 @@ GET     /trips/my                   controllers.TripsController.my(id: String = 
 GET     /trips/my/:id               controllers.TripsController.my(id: String)
 GET     /trips/:id                  controllers.TripsController.view(id: String)
 POST    /trips/:id                  controllers.TripsController.change(id: String)
-
-GET     /signin                     controllers.LoginController.signin
-POST    /login                      controllers.LoginController.login
-GET     /signup                     controllers.LoginController.signup
-POST    /registrate                 controllers.LoginController.registrate
-GET     /logout                     controllers.LoginController.logout

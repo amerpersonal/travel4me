@@ -13,10 +13,10 @@
  *@
 @main("Trips that you always wanted") {
     <div class="row">
-        <div class="col-md-3">
+        <div class="col-md-3" id="add_trip_section">
             @partial.add_trip(new_trip, flash)
         </div>
-        <div class="col-md-9">
+        <div class="col-md-9" id="main_section">
             <div class="row" id="search_filter_bar">
 
                 <div class="pull-left" id="categories_select">
@@ -42,7 +42,7 @@
                 </div>
             </div>
 
-            <div id="search_spinner" class="hide"><img src="/assets/images/spinner-loading.gif" /></div>
+            <img src="/assets/images/spinner-loading.gif" id="search_spinner" class="hide" />
 
             <div class="row" id="trips">
                 @trips.map { trip => @partial.trip(trip) }

@@ -59,7 +59,7 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
 
     val term: String = trip.title
     val terms: List[String] = term.split(" ").toList.flatMap { _.trim.split(",").map(_.trim) }
-    val terms_string = terms.mkString(",")
+    val terms_string = terms.mkString(",") + ",tourism,travel,trip,nature,buildings"
     log.info(s"Fetching images for trip $terms_string")
 
 

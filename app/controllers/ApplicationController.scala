@@ -2,39 +2,23 @@ package controllers
 
 import javax.inject.Inject
 
+import akka.stream.Materializer
 import com.evojam.play.elastic4s.PlayElasticFactory
-import com.evojam.play.elastic4s.configuration.{ClusterSetup, ClusterSetupLoader}
+import com.evojam.play.elastic4s.configuration.ClusterSetup
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.{HitAs, RichSearchHit}
 import play.api.mvc._
 import models._
 import play.api.libs.json._
 import org.json4s.jackson.Serialization
 import helpers.SessionHelper
-import play.api.inject.DefaultApplicationLifecycle
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
-import scala.collection.JavaConverters._
-import services._
-import play.api.cache._
-import play.api.Configuration
-import play.Logger
 /**
   * Created by amer.zildzic on 10/10/16.
   */
 class ApplicationController @Inject()(ef: PlayElasticFactory, cs: ClusterSetup)(implicit exec: ExecutionContext) extends Controller with SessionHelper {
   protected lazy val client = ef(cs)
-
-//  cache.get("default_img_path") match {
-//    case Some(path) => {}
-//    case None => {
-//        val default_image_path = config.underlying.getString("general.default_img_path") + "/" +
-//                            config.underlying.getString("general.default_img")
-//
-//        cache.set("default_img_path")
-//    }
-//  }
 
   implicit object ArrayFormat extends Format[Array[Trip]] {
     override def writes(trips: Array[Trip]): JsValue = {
@@ -49,10 +33,26 @@ class ApplicationController @Inject()(ef: PlayElasticFactory, cs: ClusterSetup)(
     }
   }
 
+//  class AuthFilter @Inject()(implicit val mat: Materializer) extends Filter {
+//    def apply(nextFilter: RequestHeader => Future[Result])(header: RequestHeader): Future[Result] = {
+//
+//      println("in filter")
+//      nextFilter(header).map { result =>
+//        if (isSessionExpired(header)) result.withNewSession
+//        else result
+//      }
+//    }
+//  }
+//
+////  class Filters @Inject() (auth: AuthFilter) extends http.DefaultHttpFilters(auth)
+//  class FiltersConfiguration @Inject()(implicit val mat: Materializer) extends  play.api.http.HttpFilters {
+//    val filters = Seq(new AuthFilter())
+//  }
+
   case class AuthRestricted[T](action: Action[T]) extends Action[T] {
     def apply(request: Request[T]): Future[Result] = {
       if(hasSession(request)) action(request)
-      else Future { Redirect(routes.LoginController.signin()) }
+      else Future { Redirect(routes.LoginController.signin()).withNewSession }
     }
 
     lazy val parser = action.parser

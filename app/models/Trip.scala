@@ -29,6 +29,7 @@ import services.Search
 import org.joda.time.DateTime
 import org.joda.time.format._
 import play.api.cache.Cache
+import org.json4s.jackson.Serialization
 
 case class Trip (var id: Option[String] = None,
                 val title: String,
@@ -37,7 +38,7 @@ case class Trip (var id: Option[String] = None,
                 val userId: Option[String],
                 val labels: Option[List[String]],
                 val image_collection: Option[List[String]] = None,
-                val updated_timestamp: org.joda.time.DateTime = null){
+                val updated_timestamp: org.joda.time.DateTime = null) extends Base {
   val uuid_regex = new Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
   if(id == None) id = Some(UUID.randomUUID().toString)
@@ -61,6 +62,8 @@ case class Trip (var id: Option[String] = None,
 
   def isNew: Boolean = title.isEmpty && description.isEmpty
 
+  override def serialize: String = ???
+
 }
 
 object Trip extends Search {
@@ -68,6 +71,7 @@ object Trip extends Search {
   var default_image_path: String = null
 
   def set_default_image(path: String) = {
+    println("set default image path")
     default_image_path = path
   }
 

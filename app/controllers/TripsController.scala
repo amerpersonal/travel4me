@@ -54,7 +54,7 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
             case Failure(ex) => p.success(InternalServerError("Error. Try again later"))
           }
 
-          val timeoutFuture = akka.pattern.after(10.millis, actorSystem.scheduler)(p.future)
+          val timeoutFuture = akka.pattern.after(60.millis, actorSystem.scheduler)(p.future)
           timeoutFuture
 
         }
@@ -148,7 +148,7 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
       case Failure(ex) => p.success(Redirect(routes.HomeController.index("all")))
     }
 
-    val timeoutFuture = akka.pattern.after(10.millis, actorSystem.scheduler)(p.future)
+    val timeoutFuture = akka.pattern.after(60.millis, actorSystem.scheduler)(p.future)
     timeoutFuture
   }
 

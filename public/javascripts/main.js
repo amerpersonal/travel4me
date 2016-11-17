@@ -20,6 +20,8 @@ $(document).ready(function(){
         }
 
         delay(function(){
+            $("#trip_show").addClass("hide");
+            $(".carousel").carousel("pause");
             $("#trips").css({"opacity" : "0.5"});
             $("#search_spinner").removeClass("hide");
             $.ajax({
@@ -37,19 +39,18 @@ $(document).ready(function(){
                     $("#trips").html(trips_html);
                     $("#trips").css({"opacity" : "1"});
                     $("#search_spinner").addClass("hide");
-                    $("#trip_show").html("");
                 }
             })
         }, 350)
     });
 
     $("form#add_trip").submit(function(){
+        $(".carousel").carousel("pause");
         var url = $(this).attr("action");
         var fd = new FormData();
         fd.append("title", $("#title").val());
         fd.append("description", $("#description").val());
-
-
+        $("#add_trip_action").button("loading");
 
         var labels = $("#check_labels input:checkbox:checked").map(function(){
             return $(this).attr("value").split("_").map(function(item){
@@ -62,6 +63,7 @@ $(document).ready(function(){
         var labels_arr = [];
         for(var i = 0; i < labels.length; i++){ labels_arr.push(labels[i]) }
 
+//        $("#add_trip_spinner").removeClass("hide");
         $.ajax({
                 url: url,
                 type: "POST",
@@ -74,22 +76,31 @@ $(document).ready(function(){
                 processData: false,
                 contentType: "application/json",
                 success: function(res){
-//                    $("#success_message").removeClass("hide").html("Trip added. Thanks for contributing");
 
                     $("#error_message").addClass("hide");
                     $("#image_upload_wrapper").removeClass("hide");
                     last_created_id = res.id;
 
                     getAndRenderTrips();
+
+                    $("#trip_show").addClass("hide");
                     $("#upload_progress").addClass("hide");
+                    $("#add_trip_action").button("reset");
+                    $("#add_trip_action").addClass("hide");
+                    $("#reset_trip_action").removeClass("hide");
                 },
                 error: function(jqXHR, textStatus, errorThrown ){
                     $("#error_message").removeClass("hide").html(jqXHR.responseText);
-//                    $("#success_message").addClass("hide");
                     $("#image_upload_wrapper").addClass("hide");
+                    $("#add_trip_action").button("reset");
                 }
         });
         return false;
+    });
+
+    $("#reset_trip_action").click(function(){
+        $("#add_trip_action").removeClass("hide");
+        $(this).addClass("hide");
     });
 
     var trips_per_row = 0;
@@ -111,6 +122,7 @@ $(document).ready(function(){
                     $("#trips").html(trips_html);
 
                     $("#search_spinner").addClass("hide");
+//                    $("#add_trip_spinner").addClass("hide");
                     $("#trips").css({"opacity" : "1"});
                 }
             });
@@ -123,7 +135,6 @@ $(document).ready(function(){
                             '<a href="#" class="open-trip"><img src="' + trip.image_collection[0] + '" /></a>' +
                             '<div class="caption">' +
                                '<a href="#" class="open-trip"><h4>' + trip.title + '</h4></a>' +
-                                '<p>' + trip.description + '</p>' +
                             '</div>' +
                         '</div>' +
                     '</div>';
@@ -189,7 +200,7 @@ $(document).ready(function(){
 
     $("#trips").on("click", ".open-trip", function(){
         var trip_id = $(this).closest(".trip").attr("id");
-
+        console.log("trip_id: " + trip_id);
         $.ajax({
             url: "/trips/" + trip_id,
             type: "GET",
@@ -202,7 +213,7 @@ $(document).ready(function(){
 
                 $('#trip_show').find('.item').first().addClass('active');
                 $('#trip_show').find('li').first().addClass('active');
-                $('.carousel').carousel({interval: 9000});
+                $('.carousel').carousel({interval: 6000});
             },
             error: function(jqXHR, textStatus, errorThrown){
             }
@@ -213,6 +224,7 @@ $(document).ready(function(){
     });
 
     $("#trip_show").on("click", ".close-trip", function(){
+        $(".carousel").carousel("pause");
         $("#trip_show").addClass("hide");
         $("#trips").css({"opacity" : "0.5"});
         $("#search_spinner").removeClass("hide");

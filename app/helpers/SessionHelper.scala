@@ -3,16 +3,18 @@ package helpers
 import models.User
 import org.json4s.jackson.JsonMethods
 import org.mindrot.jbcrypt.BCrypt
-import play.api.mvc.Request
+import play.api.mvc.{Request, RequestHeader}
 import org.joda.time.DateTime
 import play.api.Logger
+
+import scala.util.Try
 /**
   * Created by amer.zildzic on 10/10/16.
   */
 
 trait SessionHelper {
   implicit val formats = org.json4s.DefaultFormats
-//  private val session_duration_ms = play.api.Play.current.configuration.underlying.getLong("play.http.session.duration") * 1000
+
 
   def hasSession(request: Request[Any]) : Boolean = request.session.get("current_user") != None
 
@@ -44,6 +46,30 @@ trait SessionHelper {
   }
 
 
+
 }
 
-object SessionHelper extends SessionHelper
+object SessionHelper extends SessionHelper {
+  var session_duration_ms: Long = 999999999
+
+  def set_duration(duration: Long) = {
+    session_duration_ms = duration
+  }
+
+  def isSessionExpired(request: RequestHeader): Boolean = {
+    val st = request.session.get("started")
+
+    request.session.get("started") match {
+      case Some(started) => Try(started.toLong).toOption match {
+        case Some(int_started) => {
+          val sessionStartedAgo = org.joda.time.DateTime.now.getMillis - int_started
+          println("started ago: " + sessionStartedAgo)
+          println("session_duration: " + session_duration_ms)
+          sessionStartedAgo > session_duration_ms
+        }
+        case None => false
+      }
+      case None => false
+    }
+  }
+}

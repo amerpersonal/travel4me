@@ -47,8 +47,8 @@ signin-container {
 #search_filter_bar {
     padding: 0 15px 10px 15px;
     padding-top: 10px;
-    margin: 0 0 10px 0;
-     background-color: #888;
+    margin: 0 0 5px 0;
+    background-color: #888;
 }
 
 #search {
@@ -60,17 +60,18 @@ signin-container {
     fint-size: 1.2em;
 }
 
+
 #search_spinner {
-    position: fixed;
-    z-index: 20;
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    left: 0;
+    right: 0;
+    right: 0;
     top: 30%;
-    left: 50%;
+    margin: auto;
 }
 
-#search_spinner img {
-    width: 100px;
-    height: 100px;
-}
 
 #categories_select {
     width: 300px;
@@ -123,8 +124,7 @@ img.small-image {
 }
 
 #trip_show .carousel-caption {
-    background: #666;
-    opacity: 0.5;
+    background: rgba(102, 102, 102, 0.5);
     text-align: left;
     left: 0;
     right: 0;
@@ -133,7 +133,6 @@ img.small-image {
 
 .carousel-caption {
     color: white;
-    opacity: 1;
 }
 
 .carousel-caption p {
@@ -141,10 +140,31 @@ img.small-image {
 }
 
 .close-trip {
-    font-size: 1.5em;
+    font-size: 2em;
     position: absolute;
-    top: 20px;
-    right: 100px;
-    color: #333;
+    top: 5px;
+    right: 5px;
     z-index: 20;
+    color: #fff;
+    opacity: 0.8;
+}
+
+.close-trip:hover {
+    text-decoration: none;
+    opacity: 1 !important;
+    color: #fff;
+}
+
+#add_trip_section {
+    padding-right: 0px;
+}
+
+#main_section {
+    padding-left: 5px;
+    min-height: 600px;
+}
+
+.date {
+    width: 130px;
+    display: inline-block;
 }

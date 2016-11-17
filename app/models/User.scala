@@ -14,9 +14,7 @@ import org.json4s.jackson.Serialization
 /**
   * Created by amer.zildzic on 10/7/16.
   */
-case class User(var id: Option[String], val email: String, val password: String, val password_confirmation: String){
-  implicit val formats = org.json4s.DefaultFormats
-
+case class User(var id: Option[String], val email: String, val password: String, val password_confirmation: String) extends Base {
   private var salt_val = ""
   val uuid_regex = new Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
@@ -35,7 +33,7 @@ case class User(var id: Option[String], val email: String, val password: String,
     this
   }
 
-  def serialize: String = {
+  override def serialize: String = {
 
     val usr_map: Map[String, String] = Map(
       "id" -> id.get,

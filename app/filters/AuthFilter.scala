@@ -4,6 +4,8 @@ import akka.stream.Materializer
 import javax.inject._
 import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future}
+import helpers.SessionHelper._
+import play.api.mvc.Results._
 
 /**
  * This is a simple filter that adds a header to all requests. It's
@@ -16,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
  * It is used below by the `map` method.
  */
 @Singleton
-class ExampleFilter @Inject()(
+class AuthFilter @Inject()(
     implicit override val mat: Materializer,
     exec: ExecutionContext) extends Filter {
 
@@ -25,9 +27,9 @@ class ExampleFilter @Inject()(
     // Run the next filter in the chain. This will call other filters
     // and eventually call the action. Take the result and modify it
     // by adding a new header.
-    nextFilter(requestHeader).map { result =>
-      result.withHeaders("X-ExampleFilter" -> "foo")
-    }
+    println("in filter")
+    if (isSessionExpired(requestHeader)) Future.successful(Redirect(requestHeader.path).withNewSession)
+    else nextFilter(requestHeader)
   }
 
 }
