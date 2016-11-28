@@ -4,7 +4,7 @@
  *@
 
 @(trips: List[Trip])(implicit request: Request[Any], flash: Flash)
-@new_trip = @{ Trip(None, "", "", true, org.joda.time.DateTime.now, org.joda.time.DateTime.now, None, None, None, org.joda.time.DateTime.now) }
+@new_trip = @{ Trip(None, "", "", "", true, org.joda.time.DateTime.now, org.joda.time.DateTime.now, None, None, None, org.joda.time.DateTime.now) }
 
 @*
  * Call the `main` template with two arguments. The first

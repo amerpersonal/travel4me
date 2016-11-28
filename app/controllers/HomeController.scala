@@ -25,7 +25,7 @@ import play.api.i18n.Messages
 class HomeController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory)(implicit exec: ExecutionContext) extends ApplicationController(ef: PlayElasticFactory, cs: ClusterSetup) {
 
   def index(label: String) = Action.async { implicit request =>
-    var query:Map[String, Object] = Map("size" -> JsNumber(50), "sort" -> Map("updated_timestamp" -> "desc"))
+    var query:Map[String, Object] = Map("size" -> JsNumber(50))//, "sort" -> Map("updated_timestamp" -> "desc"))
     val label_name = Trip.labels.get(label)
 
     if(label_name != None) {

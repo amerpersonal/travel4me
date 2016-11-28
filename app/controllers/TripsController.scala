@@ -22,11 +22,12 @@ import scala.util.{Failure, Success}
 import java.io.File
 
 import akka.actor.ActorSystem
+import com.sksamuel.elastic4s.RichSearchResponse
 import play.api.{Configuration, Logger}
 import play.api.Application
 
 import scala.concurrent.duration._
-
+import scala.collection.JavaConverters._
 
 class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorSystem: ActorSystem, app: Provider[Application])(implicit exec: ExecutionContext) extends ApplicationController(ef: PlayElasticFactory, cs: ClusterSetup) {
   def create = Action.async(parse.json) { implicit request =>
@@ -40,6 +41,7 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
 
             client.execute {
               index into "trips/trip" id UUID.randomUUID() fields(
+                "place" -> trip.place,
                 "title" -> trip.title,
                 "description" -> trip.description,
                 "labels" -> trip.labels.getOrElse(None),
@@ -171,13 +173,14 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
 
   def change(id: String) = OwnerRestrictedAction.async { implicit request =>
     val title = request.body.asMultipartFormData.get.asFormUrlEncoded.get("title").getOrElse(Vector("")).head
+    val place = request.body.asMultipartFormData.get.asFormUrlEncoded.get("place").getOrElse(Vector("")).head
     val description = request.body.asMultipartFormData.get.asFormUrlEncoded.get("description").getOrElse(Vector("")).head
     val custom_label = request.body.asMultipartFormData.get.asFormUrlEncoded.get("custom_label").getOrElse(Vector()).filter(!_.isEmpty)
     val pred_labels = request.body.asMultipartFormData.get.asFormUrlEncoded.get("check_labels").getOrElse(Vector())
     val labels = pred_labels ++ custom_label
     val public = request.body.asMultipartFormData.get.asFormUrlEncoded.get("type").getOrElse(Vector("")).head == "public"
 
-    val trip = Trip(Some(id), title, description, public, org.joda.time.DateTime.now,  org.joda.time.DateTime.now, loggedInUser(request).id, Some(labels.toList), None, org.joda.time.DateTime.now)
+    val trip = Trip(Some(id), title, place, description, public, org.joda.time.DateTime.now,  org.joda.time.DateTime.now, loggedInUser(request).id, Some(labels.toList), None, org.joda.time.DateTime.now)
 
     if(trip.isValid) {
       val p = Promise[Result]()
@@ -187,7 +190,7 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
       }.map(res => {
         if(res.isExists){
           val res = client.execute {
-            update id id in "trips/trip" doc Map("title" -> trip.title, "description" -> trip.description, "labels" -> trip.labels.get, "public" -> trip.public, "updated_timestamp" -> trip.updated_timestamp.toString("y-M-d H:m:s Z"))
+            update id id in "trips/trip" doc Map("place" -> trip.place, "title" -> trip.title, "description" -> trip.description, "labels" -> trip.labels.get, "public" -> trip.public, "updated_timestamp" -> trip.updated_timestamp.toString("y-M-d H:m:s Z"))
           }.onComplete {
             case Success(res) => p.success(Redirect(routes.TripsController.my(trip.id.get)))
             case Failure(ex) => p.success(BadRequest(s"Error while updating trip: $ex.getMessage"))
@@ -245,6 +248,27 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
       case trip: Trip => Ok(Json.toJson(trip))
       case _ => BadRequest("Not found")
     })
+  }
+
+  def places = Action.async { implicit request =>
+    client.execute {
+      search in "places/city" query(matchAllQuery) size 1000
+    }.map(r => r match {
+      case res: RichSearchResponse => {
+        val places: List[JsValue] = res.hits.map { hit =>
+          val place: scala.collection.mutable.Map[String, Object] = hit.getSource.asScala
+
+          List(place("city").toString, place("country").toString)
+        }.toList.flatten.map(Json.toJson(_))
+
+        println(places)
+        Ok(JsArray(places))
+
+      }
+
+
+    })
+
   }
 
 }

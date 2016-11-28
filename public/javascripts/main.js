@@ -70,6 +70,7 @@ $(document).ready(function(){
                 data: JSON.stringify({
                     "title" : $("#title").val(),
                     "description" : $("#description").val(),
+                    "place" : $("#place").val(),
                     "labels" : labels_arr,
                     "type" : $("#type").val(),
                     "start_date" : $("#start_date").val(),
@@ -226,6 +227,22 @@ $(document).ready(function(){
     });
 
     $(".date").datepicker();
+
+//    $.get('example_collection.json', function(data){
+//        $("#name").typeahead({ source:data });
+//    },'json');
+
+    $.ajax({
+        url: "/places",
+        type: "GET",
+        success: function(places){
+            console.log("places");
+            console.log(places);
+            $("#place").typeahead({source: places});
+        },
+        error: function(jqXHR, textStatus, errorThrown ){
+        }
+    });
 
     $("#trip_show").on("click", ".close-trip", function(){
         $(".carousel").carousel("pause");

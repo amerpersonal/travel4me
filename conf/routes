@@ -6,6 +6,7 @@
 GET     /                           controllers.HomeController.index(label: String = "all")
 # An example controller showing how to use dependency injection
 GET     /count                      controllers.CountController.count
+GET     /places                     controllers.TripsController.places
 
 GET     /signin                     controllers.LoginController.signin
 POST    /login                      controllers.LoginController.login

@@ -34,6 +34,7 @@ import org.joda.time._
 
 case class Trip (var id: Option[String] = None,
                  val title: String,
+                 val place: String,
                  val description: String,
                  val public: Boolean,
                  val startDate: org.joda.time.DateTime,
@@ -49,7 +50,7 @@ case class Trip (var id: Option[String] = None,
   def validate(id: Option[String] = None, title: String, description: String, public: Boolean, startDate: org.joda.time.DateTime,
                endDate: org.joda.time.DateTime, labels: Option[List[String]] = None, image_collection: Option[List[String]] = None) = {
     if ((id != None && uuid_regex != id) || title.trim.isEmpty || description.trim.isEmpty) None
-    else Some(Trip(id, title, description, public, startDate, endDate, None, labels))
+    else Some(Trip(id, title, place, description, public, startDate, endDate, None, labels))
   }
 
   def isValid: Boolean = (id == None || uuid_regex.pattern.matcher(id.get).matches) && !title.trim.isEmpty && !description.trim.isEmpty
@@ -85,6 +86,7 @@ object Trip extends Search {
     (
       (__ \ "id").readNullable[String] and
         (__ \ "title").read[String](notEmpty) and
+        (__ \ "place").read[String] and
         (__ \ "description").read[String](notEmpty) and
         (__ \ "type").readNullable[String].map(v => v.getOrElse("") == "public") and
         (__ \ "start_date").read[String](validDate).map(formDateFormatter.parseDateTime(_)) and
@@ -99,6 +101,7 @@ object Trip extends Search {
   implicit val tripWriter: Writes[Trip] = (
     (JsPath \ "id").write[Option[String]] and
       (JsPath \ "title").write[String] and
+      (JsPath \ "place").write[String] and
       (JsPath \ "description").write[String] and
       (JsPath \ "public").write[Boolean] and
       (JsPath \ "start_date").write[org.joda.time.DateTime] and
@@ -156,7 +159,7 @@ object Trip extends Search {
         case _ => org.joda.time.DateTime.now
       }
 
-      Trip(Some(hit.getId), source.get("title").toString, source.get("description").toString,
+      Trip(Some(hit.getId), source.get("title").toString, source.get("place").toString, source.get("description").toString,
         source.get("public").asInstanceOf[Boolean], startDate, endDate, user_id, Some(labels), Some(images), updated)
     }
   }
@@ -189,7 +192,7 @@ object Trip extends Search {
       case _ => org.joda.time.DateTime.now
     }
 
-    Trip(Some(hit.getId), fields.get("title").getValue.toString, fields.get("description").getValue.toString,
+    Trip(Some(hit.getId), fields.get("title").getValue.toString, fields.get("place").getValue.toString, fields.get("description").getValue.toString,
       fields.get("public").getValue.asInstanceOf[Boolean], startDate, endDate, user_id, Some(labels), Some(images), updated)
   }
 
@@ -229,7 +232,7 @@ object Trip extends Search {
 
   def find(client: ElasticClient, id: String): Future[Trip] = {
     client.execute {
-      get id id from "trips/trip" fields("title", "description", "public", "user_id", "labels", "image_collection", "updated_timestamp")
+      get id id from "trips/trip" fields("title", "place", "description", "public", "user_id", "labels", "image_collection", "updated_timestamp")
     }.map(r => {
       if(r.isExists) getToTrip(r)
       else throw new Exception("Error")

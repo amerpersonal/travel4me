@@ -58,13 +58,15 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
     System.out.println(s"fetch for trip $trip")
 
     val term: String = trip.title
+    val place: String = trip.place
     val terms: List[String] = term.split(" ").toList.flatMap { _.trim.split(",").map(_.trim) }
-    val terms_string = terms.mkString(",") + ",tourism,travel,trip,nature,buildings"
-    log.info(s"Fetching images for trip $terms_string")
+//    val terms_string = term.replaceAll(",", " ") + " tourism travel trip nature buildings," + place + " tourism travel trip nature buildings"
+    val termsString = place.toLowerCase() + " tourism travel nature buildings"
+    log.info(s"Fetching images for trip $termsString")
 
 
-    val term_encoded = views.html.helper.urlEncode(terms_string)
-    val url = s"$base_url&api_key=$api_key&tags=$term_encoded"
+    val term_encoded = views.html.helper.urlEncode(termsString)
+    val url = s"$base_url&api_key=$api_key&text=$term_encoded"
     println(s"url: $url")
     val images_json = Source.fromURL(url).mkString.replace("jsonFlickrApi(", "").dropRight(1)
 
@@ -133,5 +135,5 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
 
 class ImagesFetcherModule extends AbstractModule with AkkaGuiceSupport {
   def configure(): Unit =
-    bindActor[ImagesFetcher]("fetcher")
+    bindActor[ImagesFetcher]("tripImagesFetcher")
 }
