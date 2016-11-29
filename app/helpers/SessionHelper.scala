@@ -63,8 +63,6 @@ object SessionHelper extends SessionHelper {
       case Some(started) => Try(started.toLong).toOption match {
         case Some(int_started) => {
           val sessionStartedAgo = org.joda.time.DateTime.now.getMillis - int_started
-          println("started ago: " + sessionStartedAgo)
-          println("session_duration: " + session_duration_ms)
           sessionStartedAgo > session_duration_ms
         }
         case None => false

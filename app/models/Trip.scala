@@ -53,7 +53,7 @@ case class Trip (var id: Option[String] = None,
     else Some(Trip(id, title, place, description, public, startDate, endDate, None, labels))
   }
 
-  def isValid: Boolean = (id == None || uuid_regex.pattern.matcher(id.get).matches) && !title.trim.isEmpty && !description.trim.isEmpty
+  def isValid: Boolean = (id == None || uuid_regex.pattern.matcher(id.get).matches) && !title.trim.isEmpty && !description.trim.isEmpty && endDate.isAfter(startDate.getMillis)
 
   def hasLabel(label: String): Boolean = labels match {
     case Some(l) => l.toSet.contains(label)
@@ -75,6 +75,7 @@ object Trip extends Search {
   val formatter: DateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss Z")
   val formDateFormatter: DateTimeFormatter = DateTimeFormat.forPattern("MM/dd/yyyy")
   val dateFormatter: DateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd 0:0:0 ")
+
   var default_image_path: String = null
 
   def set_default_image(path: String) = {
@@ -145,7 +146,7 @@ object Trip extends Search {
       }
 
       val images: List[String] = source.get("image_collection") match {
-        case StringList(imgs) => imgs
+        case StringList(imgs) => imgs.map(image => if(image.contains("assets/")) image.replace("assets/", "/assets/") else image)
         case _ => List(default_image_path)
       }
 
@@ -178,7 +179,7 @@ object Trip extends Search {
     }
 
     val images: List[String] = fields.get("image_collection") match {
-      case imgs: AnyRef => imgs.getValues.toArray.map(x => x.toString).toList
+      case imgs: AnyRef => imgs.getValues.toArray.map(x => x.toString).toList.map(image => if(image.contains("assets/")) image.replace("assets/", "/assets/") else image)
       case _ => List(default_image_path)
     }
 
@@ -235,7 +236,7 @@ object Trip extends Search {
       get id id from "trips/trip" fields("title", "place", "description", "public", "user_id", "labels", "image_collection", "updated_timestamp")
     }.map(r => {
       if(r.isExists) getToTrip(r)
-      else throw new Exception("Error")
+      else null
     })
   }
 

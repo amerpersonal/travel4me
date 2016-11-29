@@ -34,12 +34,12 @@ class PlacesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
   case class StorePlaces(cities: List[Map[String, String]])
 
 
-  val scheduler = context.system.scheduler.schedule(
-    initialDelay = 40.minutes,
-    message = FetchPlaces,
-    interval = 1.minutes,
-    receiver = self
-  )(executionContext)
+//  val scheduler = context.system.scheduler.schedule(
+//    initialDelay = 40.minutes,
+//    message = FetchPlaces,
+//    interval = 1.minutes,
+//    receiver = self
+//  )(executionContext)
 
   override  def receive:Receive = {
     case FetchPlaces => fetchPlaces
@@ -110,7 +110,7 @@ class PlacesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
 
   }
 
-  override def postStop(): Unit = scheduler.cancel()
+  override def postStop(): Unit = {}//scheduler.cancel()
 }
 
 class PlacesFetcherModule extends AbstractModule with AkkaGuiceSupport {

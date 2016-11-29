@@ -54,14 +54,15 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
 
   }
 
-  def fetchImages(trip: Trip) = {
+  def fetchImages(trip: Trip, justPlace: Boolean = false): Unit = {
     System.out.println(s"fetch for trip $trip")
 
     val term: String = trip.title
     val place: String = trip.place
     val terms: List[String] = term.split(" ").toList.flatMap { _.trim.split(",").map(_.trim) }
 //    val terms_string = term.replaceAll(",", " ") + " tourism travel trip nature buildings," + place + " tourism travel trip nature buildings"
-    val termsString = place.toLowerCase() + " tourism travel nature buildings"
+    var termsString = place.toLowerCase()
+    if(!justPlace) termsString += " nature buildings culture"
     log.info(s"Fetching images for trip $termsString")
 
 
@@ -77,21 +78,25 @@ class ImagesFetcher @Inject()(config: play.api.Configuration, cs: ClusterSetup, 
 
 
     images_details.get("photo") match {
-      case Some(photos) => {
+      case Some(rawPhotos) => {
         val old_images = trip.image_collection match {
           case Some(coll) => coll.filter(img => img != default_img)
           case _ => List.empty[String]
         }
 
-        System.out.println(s"old images $old_images")
-        val images = old_images ::: (for (photo <- photos.asInstanceOf[List[Map[String, String]]]) yield urlForPhoto(photo))
-        System.out.println(s"images: $images")
+        val photos = rawPhotos.asInstanceOf[List[Map[String, String]]]
+        if(photos.isEmpty) fetchImages(trip, true)
+        else {
+          System.out.println(s"old images $old_images")
+          val images = old_images ::: (for (photo <- photos) yield urlForPhoto(photo))
+          System.out.println(s"images: $images")
 
-        client.execute {
-          update id trip.id.get in "trips/trip" doc(("image_collection", images))
-        }.onComplete {
-          case Success(res) => self ! ImagesFetched(trip.id.get, images)
-          case Failure(ex) => log.error(s"Error while indexing images for trip $trip.id.get" + ex.getMessage)
+          client.execute {
+            update id trip.id.get in "trips/trip" doc (("image_collection", images))
+          }.onComplete {
+            case Success(res) => self ! ImagesFetched(trip.id.get, images)
+            case Failure(ex) => log.error(s"Error while indexing images for trip $trip.id.get" + ex.getMessage)
+          }
         }
 
       }

@@ -12,7 +12,7 @@ $(document).ready(function(){
 
     $("#search").keyup(function(){
         var term = $(this).val().trim().toLowerCase();
-        var query = {"search" : {"title" : term, "description" : term}, "size" : 30};
+        var query = {"search" : {"place" : term, "title" : term, "description" : term}, "size" : 30};
         var label = window.location.pathname.split("/")[1];
         if(label !== ""){
             if(query.filter === undefined) query.filter = {};
@@ -63,7 +63,6 @@ $(document).ready(function(){
         var labels_arr = [];
         for(var i = 0; i < labels.length; i++){ labels_arr.push(labels[i]) }
 
-//        $("#add_trip_spinner").removeClass("hide");
         $.ajax({
                 url: url,
                 type: "POST",
@@ -101,34 +100,48 @@ $(document).ready(function(){
         return false;
     });
 
+    var tripId = null;
+    if(window.location.toString().indexOf("/my") === -1){
+        tripId = last_created_id;
+    }
+    else {
+        tripId = window.location.toString().split("/my/")[1];
+    }
+
     $("#reset_trip_action").click(function(){
         $("#add_trip_action").removeClass("hide");
+        $("#trip_images").html("");
+        $("#image_upload_wrapper").addClass("hide");
         $(this).addClass("hide");
     });
 
     var trips_per_row = 0;
     function getAndRenderTrips(){
-            $.ajax({
-                url: "/trips/browse",
-                type: "POST",
-                data: JSON.stringify({"sort" : {"updated_timestamp" : "desc"}, "size" : 30}),
-                processData: false,
-                contentType: "application/json",
-                success: function(trips){
-                    $("#trips").html("");
-                    var index = 0;
+        var term = $("#search").val();
+        var data = {"sort" : {"updated_timestamp" : "desc"}, "size" : 30};
+        if(term != ""){
+            data.search = {"place" : term.toLowerCase(), "title" : term.toLowerCase(), "description" : term.toLowerCase()};
+        }
+        $.ajax({
+            url: "/trips/browse",
+            type: "POST",
+            data: JSON.stringify(data),
+            processData: false,
+            contentType: "application/json",
+            success: function(trips){
+                $("#trips").html("");
+                var index = 0;
 
-                    var trips_html = '';
-                    for(var i = 0; i < trips.length; i++){
-                        trips_html += renderTrip(trips[i]);
-                    }
-                    $("#trips").html(trips_html);
-
-                    $("#search_spinner").addClass("hide");
-//                    $("#add_trip_spinner").addClass("hide");
-                    $("#trips").css({"opacity" : "1"});
+                var trips_html = '';
+                for(var i = 0; i < trips.length; i++){
+                    trips_html += renderTrip(trips[i]);
                 }
-            });
+                $("#trips").html(trips_html);
+
+                $("#search_spinner").addClass("hide");
+                $("#trips").css({"opacity" : "1"});
+            }
+        });
 
     }
 
@@ -137,7 +150,7 @@ $(document).ready(function(){
                         '<div class="thumbnail">' +
                             '<a href="#" class="open-trip"><img src="' + trip.image_collection[0] + '" /></a>' +
                             '<div class="caption">' +
-                               '<a href="#" class="open-trip"><h4>' + trip.title + '</h4></a>' +
+                               '<a href="#" class="open-trip"><h4>' + trip.place + ": " + trip.title + '</h4></a>' +
                             '</div>' +
                         '</div>' +
                     '</div>';
@@ -153,7 +166,7 @@ $(document).ready(function(){
        $("#upload_progress").removeClass("hide");
        $("#upload_progress .progress-bar").css({"width" : "50%"});
        $.ajax({
-               url: "/trips/" + last_created_id + "/upload",
+               url: "/trips/" + tripId + "/upload",
                type: "POST",
                data: fd,
                processData: false,
@@ -177,19 +190,21 @@ $(document).ready(function(){
         $("#trip_images").html(html);
     }
 
-    setInterval(function(){
-        if($("#trip_images").html().trim() !== ""){
-            $.ajax({
-                url: "/trips/" + last_created_id,
-                type: "GET",
-                success: function(res){
-                    renderTripImagesSmall(res.image_collection);
-                }
-            });
-        }
-    }, 500);
+    if(tripId){
+        setInterval(function(){
+            if($("#trip_images").html().trim() !== ""){
+                $.ajax({
+                    url: "/trips/" + tripId,
+                    type: "GET",
+                    success: function(res){
+                        renderTripImagesSmall(res.image_collection);
+                    }
+                });
+            }
+        }, 1000);
+    }
 
-    $("#image_upload img").click(function(){
+    $("#image_upload").on("click", "img", function(){
         var src = $(this).attr("src");
         $("#image_to_remove").val(src);
 
@@ -236,8 +251,6 @@ $(document).ready(function(){
         url: "/places",
         type: "GET",
         success: function(places){
-            console.log("places");
-            console.log(places);
             $("#place").typeahead({source: places});
         },
         error: function(jqXHR, textStatus, errorThrown ){
@@ -257,7 +270,6 @@ $(document).ready(function(){
     function formCarouselItems(trip){
         var html = "";
         for(var i = 0; i < trip.image_collection.length; i++){
-            console.log(trip.image_collection[i])
             html += formCarouselItem(trip, i);
         }
         return html;
@@ -265,7 +277,7 @@ $(document).ready(function(){
 
     function formCarouselItem(trip, index){
         var caption_html = '<div class="carousel-caption pull-left">' +
-                           '<h4 class="text-uppercase">' + trip.title + '</h4>' +
+                           '<h4 class="text-uppercase">' + trip.place + ": " + trip.title + '</h4>' +
                            '<p>' + trip.description + '</p>' +
                            '</div>';
 

@@ -23,6 +23,7 @@ import java.io.File
 
 import akka.actor.ActorSystem
 import com.sksamuel.elastic4s.RichSearchResponse
+import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 import play.api.{Configuration, Logger}
 import play.api.Application
 
@@ -30,6 +31,8 @@ import scala.concurrent.duration._
 import scala.collection.JavaConverters._
 
 class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorSystem: ActorSystem, app: Provider[Application])(implicit exec: ExecutionContext) extends ApplicationController(ef: PlayElasticFactory, cs: ClusterSetup) {
+  val formDateFormatter: DateTimeFormatter = DateTimeFormat.forPattern("MM/dd/yyyy")
+
   def create = Action.async(parse.json) { implicit request =>
     request.body.validate[Trip] match {
       case t: JsSuccess[Trip] => {
@@ -93,7 +96,7 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
 
       client.execute {
         update id id in "trips/trip" script {
-          script("!ctx._source.containsKey(\"image_collection\") ? (ctx._source.image_collection = [fn]) : (ctx._source.image_collection.push(fn))").params("fn" -> s"assets/images/$filename")
+          script("!ctx._source.containsKey(\"image_collection\") ? (ctx._source.image_collection = [fn]) : (ctx._source.image_collection.add(0, fn))").params("fn" -> s"assets/images/$filename")
         }
       }.onComplete {
         case Success(r) => {
@@ -175,44 +178,65 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
     val title = request.body.asMultipartFormData.get.asFormUrlEncoded.get("title").getOrElse(Vector("")).head
     val place = request.body.asMultipartFormData.get.asFormUrlEncoded.get("place").getOrElse(Vector("")).head
     val description = request.body.asMultipartFormData.get.asFormUrlEncoded.get("description").getOrElse(Vector("")).head
+    val start_date_raw = request.body.asMultipartFormData.get.asFormUrlEncoded.get("start_date").getOrElse(Vector("")).head
+    val end_date_raw = request.body.asMultipartFormData.get.asFormUrlEncoded.get("end_date").getOrElse(Vector("")).head
     val custom_label = request.body.asMultipartFormData.get.asFormUrlEncoded.get("custom_label").getOrElse(Vector()).filter(!_.isEmpty)
     val pred_labels = request.body.asMultipartFormData.get.asFormUrlEncoded.get("check_labels").getOrElse(Vector())
     val labels = pred_labels ++ custom_label
     val public = request.body.asMultipartFormData.get.asFormUrlEncoded.get("type").getOrElse(Vector("")).head == "public"
 
-    val trip = Trip(Some(id), title, place, description, public, org.joda.time.DateTime.now,  org.joda.time.DateTime.now, loggedInUser(request).id, Some(labels.toList), None, org.joda.time.DateTime.now)
+    val p = Promise[Result]()
 
-    if(trip.isValid) {
-      val p = Promise[Result]()
-
-      client.execute {
-        get id id from "trips/trip" fields "title"
-      }.map(res => {
-        if(res.isExists){
-          val res = client.execute {
-            update id id in "trips/trip" doc Map("place" -> trip.place, "title" -> trip.title, "description" -> trip.description, "labels" -> trip.labels.get, "public" -> trip.public, "updated_timestamp" -> trip.updated_timestamp.toString("y-M-d H:m:s Z"))
-          }.onComplete {
-            case Success(res) => p.success(Redirect(routes.TripsController.my(trip.id.get)))
-            case Failure(ex) => p.success(BadRequest(s"Error while updating trip: $ex.getMessage"))
-          }
-        }
-        else p.success(BadRequest("Not Found"))
-      })
-
-      val timeoutFuture = akka.pattern.after(2.millis, actorSystem.scheduler)(p.future)
-      timeoutFuture
-
+    if(start_date_raw == "" || end_date_raw == ""){
+      p.success(Redirect(routes.TripsController.my(id)).flashing("error" -> "Title, description, start and end date needs to be provided"))
     }
     else {
-      Future { Redirect(routes.TripsController.my(id)).flashing("error" -> "Title, description, start and end date needs to be provided") }
+      val start_date = formDateFormatter.parseDateTime(start_date_raw)
+      val end_date =formDateFormatter.parseDateTime(end_date_raw)
+      val trip = Trip(Some(id), title, place, description, public, start_date, end_date, loggedInUser(request).id, Some(labels.toList), None, org.joda.time.DateTime.now)
+
+      println(end_date)
+      if (trip.isValid) {
+        client.execute {
+          get id id from "trips/trip" fields "title"
+        }.map { res =>
+          if (res.isExists) {
+            val res = client.execute {
+              update id id in "trips/trip" doc Map(
+                "place" -> trip.place,
+                "title" -> trip.title,
+                "description" -> trip.description,
+                "start_date" -> trip.startDate.toLocalDateTime.toString("y-M-d H:m:s Z"),
+                "end_date" -> trip.endDate.toLocalDateTime.toString("y-M-d H:m:s Z"),
+                "labels" -> trip.labels.get,
+                "public" -> trip.public,
+                "updated_timestamp" -> trip.updated_timestamp.toString("y-M-d H:m:s Z")
+              )
+            }.onComplete {
+              case Success(res) => p.success(Redirect(routes.TripsController.my(trip.id.get)))
+              case Failure(ex) => p.success(BadRequest(s"Error while updating trip: $ex.getMessage"))
+            }
+          }
+          else p.success(BadRequest("Not Found"))
+        }
+
+      }
+      else {
+        Future {
+          p.success(Redirect(routes.TripsController.my(id)).flashing("error" -> "Trip data not valid"))
+        }
+      }
     }
 
+    val timeoutFuture = akka.pattern.after(60.millis, actorSystem.scheduler)(p.future)
+    timeoutFuture
 
   }
 
   def removeImage(id: String) = OwnerRestrictedAction.async { implicit request =>
     val p = Promise[Result]()
-    val image_name = request.body.asFormUrlEncoded.get("image_to_remove").head
+    val img = request.body.asFormUrlEncoded.get("image_to_remove").head
+    val image_name = if(img.contains("/assets/")) img.replace("/assets/", "assets/") else img
 
     if(image_name.isEmpty) p.success(Redirect(routes.TripsController.my(id)))
     else {
@@ -239,7 +263,7 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
       })
     }
 
-    val timeoutFuture = akka.pattern.after(10.millis, actorSystem.scheduler)(p.future)
+    val timeoutFuture = akka.pattern.after(60.millis, actorSystem.scheduler)(p.future)
     timeoutFuture
   }
 

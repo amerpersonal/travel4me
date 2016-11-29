@@ -1,6 +1,10 @@
-signin-container {
+.signin-container {
     align: center;
     margin: 0 auto;
+}
+
+.signin-container label, .signin-container a {
+    font-size: 1.2em;
 }
 
 .big-form {
@@ -36,9 +40,12 @@ signin-container {
 }
 
 .my_trip img {
-    margin-right: 10px;
+    margin: 10px;
 }
 
+#image_upload img {
+    margin: 5px 5px 0 0;
+}
 #image_upload img:hover {
     opacity: 0.4;
     cursor: pointer;

@@ -9,4 +9,5 @@ object CommonHelper {
     if(text.length <= max_chars) text
     else text.dropRight(text.length - max_chars).concat("...")
   }
+
 }

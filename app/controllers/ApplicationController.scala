@@ -33,22 +33,6 @@ class ApplicationController @Inject()(ef: PlayElasticFactory, cs: ClusterSetup)(
     }
   }
 
-//  class AuthFilter @Inject()(implicit val mat: Materializer) extends Filter {
-//    def apply(nextFilter: RequestHeader => Future[Result])(header: RequestHeader): Future[Result] = {
-//
-//      println("in filter")
-//      nextFilter(header).map { result =>
-//        if (isSessionExpired(header)) result.withNewSession
-//        else result
-//      }
-//    }
-//  }
-//
-////  class Filters @Inject() (auth: AuthFilter) extends http.DefaultHttpFilters(auth)
-//  class FiltersConfiguration @Inject()(implicit val mat: Materializer) extends  play.api.http.HttpFilters {
-//    val filters = Seq(new AuthFilter())
-//  }
-
   case class AuthRestricted[T](action: Action[T]) extends Action[T] {
     def apply(request: Request[T]): Future[Result] = {
       if(hasSession(request)) action(request)

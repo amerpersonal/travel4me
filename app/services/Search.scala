@@ -31,7 +31,12 @@ class Search {
       case Some(vals) => vals.asInstanceOf[Map[String, String]].toList.map(kv =>
         filters.get(kv._1) match {
           case Some(value) => List(termQuery(kv._1, value))
-          case None => List(prefixQuery(kv._1 + ".analyzed", kv._2), prefixQuery(kv._1 + ".ngram", kv._2), termQuery(kv._1,kv._2))
+          case None => {
+            List(prefixQuery(kv._1 + ".analyzed", kv._2), prefixQuery(kv._1 + ".ngram", kv._2), termQuery(kv._1,kv._2))
+
+            val analyzedQueries = kv._2.split(" ").map(word => prefixQuery(kv._1 + ".analyzed", word))
+            List(should(analyzedQueries), prefixQuery(kv._1 + ".ngram", kv._2), termQuery(kv._1,kv._2))
+          }
         }
       ).flatten
       case _ => List()
