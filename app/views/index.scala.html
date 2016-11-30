@@ -12,12 +12,29 @@
  * argument is an `Html` object containing the body of the page.
  *@
 @main("Trips that you always wanted") {
+
+    <button id="add_trip_toggle" class="btn btn-primary btn-lg">
+        <span class="glyphicon glyphicon-plus"></span>&nbsp;&nbsp;New Trip
+    </button>
+    @partial.add_trip(new_trip, flash)
+
     <div class="row">
-        <div class="col-md-3" id="add_trip_section">
-            @partial.add_trip(new_trip, flash)
+
+        <div class="col-md-2">
+
+            <ul class="nav nav-sidebar">
+
+                <li class="active"><a href="#">All <span class="sr-only">(current)</span></a></li>
+                @for(label <- Trip.labels){
+                    <li><a href="@routes.HomeController.index(label._1)">@label._2</a></li>
+                }
+            </ul>
+
+
         </div>
-        <div class="col-md-9" id="main_section">
-            <div class="row" id="search_filter_bar">
+
+        <div class="col-md-10" id="main_section">
+            <div class="row hide" id="search_filter_bar">
 
                 <div class="pull-left" id="categories_select">
                     <div class="dropdown">

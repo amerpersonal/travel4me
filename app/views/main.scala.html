@@ -20,6 +20,7 @@
         <link rel="stylesheet" media="screen" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
         <link rel="shortcut icon" type="image/png" href="@routes.Assets.versioned("images/favicon.png")">
         <link rel="stylesheet" type="text/css" href="@routes.Assets.versioned("stylesheets/sticky-footer.css")">
+        <link rel="stylesheet" type="text/css" href="@routes.Assets.versioned("stylesheets/dashboard.css")">
         <link rel="stylesheet" type="text/css" href="@routes.Assets.versioned("stylesheets/main.css")">
         <link rel="stylesheet" media="screen" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.6.4/css/bootstrap-datepicker.css">
         <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
@@ -32,23 +33,31 @@
 
         <nav class="navbar navbar-inverse navbar-static-top">
             <div class="container-fluid">
-                <div class="navbar-header">
-                    <a class="navbar-brand" href="/">travel4me</a>
-                </div>
-                <div class="navbar-collapse collapse">
-                    <ul class="nav navbar navbar-nav navbar-right">
-                        @logged_in_user match {
-                            case user: User => {
-                                <li><a href="@routes.TripsController.my("")">My trips</a></li>
-                                <li><a href="@logout_link">@user.email [Logout]</a></li>
-                            }
-                            case null => {
-                                <li><a href="@routes.LoginController.signin">Login</a></li>
-                                <li><a href="@routes.LoginController.signup">Registration</a></li>
-                            }
-                        }
-                    </ul>
-                </div>
+                        <div class="col-md-4 navbar-header">
+                            <a class="navbar-brand brand" href="/">travel4me</a>
+                        </div>
+
+                        <div class="col-md-4 text-success">
+                            <div class="input-group">
+                                <input type="text" name="search" id="search" placeholder="Search for your dream trip" class="input-lg" />
+                            </div>
+                        </div>
+
+                        <div class="navbar-collapse collapse">
+                            <ul class="nav navbar navbar-nav navbar-right">
+                                @logged_in_user match {
+                                    case user: User => {
+                                        <li><a href="@routes.TripsController.my("")">My trips</a></li>
+                                        <li><a href="@logout_link">@user.email [Logout]</a></li>
+                                    }
+                                    case null => {
+                                        <li><a href="@routes.LoginController.signin">Login</a></li>
+                                        <li><a href="@routes.LoginController.signup">Registration</a></li>
+                                    }
+                                }
+                            </ul>
+                        </div>
+
             </div>
         </nav>
 

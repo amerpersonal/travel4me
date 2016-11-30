@@ -7,12 +7,13 @@
 @form_id = @{ if(trip.isNew) "add_trip" else "edit_trip" }
 @img_container_class = @{ if(trip.isNew) "form-group hide" else "form-group" }
 
-<div class="well">
+<div class="container-fluid bg-primary hide" id="add_trip_section">
+    <h4 class="form-heading text-uppercase">Share your trip experience</h4><br/>
     @helper.form(action = form_action, 'id -> form_id, 'enctype -> "multipart/form-data") {
-        <h3 class="form-heading">Share your trip experience</h3>
+
 
         <div class="form-group">
-            <input placeholder="Where did you go?" type="text" class="form-control" name="place" id="place" value="@trip.place" />
+            <input autocomplete="off" placeholder="Where did you go?" type="text" class="form-control" name="place" id="place" value="@trip.place" />
         </div>
 
         <div class="form-group">
@@ -24,9 +25,9 @@
 
         <div class="form-group">
             <label>When you traveled</label><br/>
-            <input type="text" class="form-control date" data-provide="datepicker" name="start_date" id="start_date" value="@trip.startDate.toString("MM/dd/yyyy")" />
+            <input type="text" class="form-control date" data-provide="datepicker" name="start_date" id="start_date" />
             <span>&nbsp;&nbsp;to&nbsp;&nbsp;</span>
-            <input type="text" class="form-control date" data-provide="datepicker" name="end_date" id="end_date" value="@trip.endDate.toString("MM/dd/yyyy")" />
+            <input type="text" class="form-control date" data-provide="datepicker" name="end_date" id="end_date" />
         </div>
 
         <div class="form-group" id="check_labels">
@@ -67,7 +68,7 @@
         <!--<span class="text-success" id="success_message"></span>-->
 
         <div class="row @img_container_class" id="image_upload_wrapper">
-            <div class="col-md-12 text-primary" id="image_upload">
+            <div class="col-md-12" id="image_upload">
                 <label for="image">Upload images from trip</label>
                 <label class="upload-action-wrapper glyphicon glyphicon-upload">
                     <input type="file" name="image" id="image" style="display: none;" />
@@ -94,20 +95,18 @@
         </div>
 
         <div class="form-group">
-            <button type="submit" class="btn btn-primary" data-loading-text="Adding..." id="add_trip_action">Contribute</button>
+            <button type="submit" class="btn btn-success" data-loading-text="Adding..." id="add_trip_action">Contribute</button>
             <button type="reset" class="btn btn-default hide" id="reset_trip_action">Add new trip</button>
             <!--<img class="hide" src="/assets/images/spinner-loading.gif" id="add_trip_spinner" width="32" height="32" />-->
         </div>
 
-        <div class="row">
-            <span class="text-danger" id="error_message">
+        <div class="row-fluid error-message" id="error_message">
                 @{
                 flash.get("error") match {
-                    case Some(err) => <div class="text-error">{ err }</div>
+                    case Some(err) => <div>{ err }</div>
                     case None => {}
                 }
             }
-            </span>
         </div>
     }
 

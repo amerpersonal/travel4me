@@ -146,7 +146,7 @@ object Trip extends Search {
       }
 
       val images: List[String] = source.get("image_collection") match {
-        case StringList(imgs) => imgs.map(image => if(image.contains("assets/")) image.replace("assets/", "/assets/") else image)
+        case StringList(imgs) => imgs.map(image => if(image.contains("assets/") && !image.contains("/assets/")) image.replace("assets/", "/assets/") else image)
         case _ => List(default_image_path)
       }
 
@@ -179,7 +179,7 @@ object Trip extends Search {
     }
 
     val images: List[String] = fields.get("image_collection") match {
-      case imgs: AnyRef => imgs.getValues.toArray.map(x => x.toString).toList.map(image => if(image.contains("assets/")) image.replace("assets/", "/assets/") else image)
+      case imgs: AnyRef => imgs.getValues.toArray.map(x => x.toString).toList.map(image => if(image.contains("assets/") && !image.contains("/assets/")) image.replace("assets/", "/assets/") else image)
       case _ => List(default_image_path)
     }
 

@@ -101,14 +101,6 @@ $(document).ready(function(){
         return false;
     });
 
-    var tripId = null;
-    if(window.location.toString().indexOf("/my") === -1){
-        tripId = last_created_id;
-    }
-    else {
-        tripId = window.location.toString().split("/my/")[1];
-    }
-
     $("#reset_trip_action").click(function(){
         $("#add_trip_action").removeClass("hide");
         $("#trip_images").html("");
@@ -166,6 +158,14 @@ $(document).ready(function(){
 
        $("#upload_progress").removeClass("hide");
        $("#upload_progress .progress-bar").css({"width" : "50%"});
+
+       var tripId = null;
+       if(window.location.toString().indexOf("/my") === -1){
+           tripId = last_created_id;
+       }
+       else {
+           tripId = window.location.toString().split("/my/")[1];
+       }
        $.ajax({
                url: "/trips/" + tripId + "/upload",
                type: "POST",
@@ -191,6 +191,13 @@ $(document).ready(function(){
         $("#trip_images").html(html);
     }
 
+    var tripId = null;
+    if(window.location.toString().indexOf("/my") === -1){
+        tripId = last_created_id;
+    }
+    else {
+        tripId = window.location.toString().split("/my/")[1];
+    }
     if(tripId){
         setInterval(function(){
             if($("#trip_images").html().trim() !== ""){
@@ -223,6 +230,8 @@ $(document).ready(function(){
             url: "/trips/" + trip_id,
             type: "GET",
             success: function(trip){
+                $("#add_trip_toggle").addClass("hide");
+                $("#add_trip_section").addClass("hide");
                 $("#trips").html("");
                 $("#trip_show").removeClass("hide");
 
@@ -243,10 +252,6 @@ $(document).ready(function(){
 
     $(".date").datepicker();
 
-//    $.get('example_collection.json', function(data){
-//        $("#name").typeahead({ source:data });
-//    },'json');
-
     $.ajax({
         url: "/places",
         type: "GET",
@@ -262,8 +267,22 @@ $(document).ready(function(){
         $("#trip_show").addClass("hide");
         $("#trips").css({"opacity" : "0.5"});
         $("#search_spinner").removeClass("hide");
+        $("#add_trip_toggle").removeClass("hide");
         getAndRenderTrips();
 
+    });
+
+    $("#add_trip_toggle").click(function(){
+        var show_new_trip_html = "<span class='glyphicon glyphicon-plus'></span>&nbsp;&nbsp;New Trip";
+        var hide_new_trip_html = "<span class='glyphicon glyphicon-minus'></span>&nbsp;&nbsp;Hide new trip";
+        if($("#add_trip_section").hasClass("hide")){
+            $(this).html(hide_new_trip_html);
+        }
+        else {
+            $(this).html(show_new_trip_html);
+
+        }
+        $("#add_trip_section").toggleClass("hide");
     });
 
 

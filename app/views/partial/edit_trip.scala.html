@@ -12,10 +12,21 @@
     <h3 class="form-heading">Share your trip experience</h3>
 
     <div class="form-group">
+        <input placeholder="Where did you go?" type="text" class="form-control" name="place" id="place" value="@trip.place" />
+    </div>
+
+    <div class="form-group">
         <input type="text" class="form-control" placeholder="Name your trip" name="title" id="title" value="@trip.title"/>
     </div>
     <div class="form-group">
         <textarea class="form-control" rows="5" name="description" id="description" placeholder="Describe your trip">@trip.description</textarea>
+    </div>
+
+    <div class="form-group">
+        <label>When you traveled</label><br/>
+        <input type="text" class="form-control date" data-provide="datepicker" name="start_date" id="start_date" value="@trip.startDate.toString("MM/dd/yyyy")" />
+        <span>&nbsp;&nbsp;to&nbsp;&nbsp;</span>
+        <input type="text" class="form-control date" data-provide="datepicker" name="end_date" id="end_date" value="@trip.endDate.toString("MM/dd/yyyy")" />
     </div>
 
     <div class="form-group" id="check_labels">
@@ -29,26 +40,11 @@
         }
 
         <div>
-            <small>Or add your specific category</small>
-            <input type="text" class="form-control" name="custom_label" id="custom_label" value="@trip.customLabel" />
+            <small>Or <a href="#" id="show_custom_label">add your specific category</a></small>
+            <input type="text" class="form-control hide" name="custom_label" id="custom_label" value="@trip.customLabel" />
         </div>
 
         <input type="hidden" name="labels" id="labels" />
-    </div>
-
-    <div class="@img_container_class" id="image_upload">
-        <label for="image">Upload image from trip</label>
-        <input type="file" name="image" id="image" />
-
-        @trip.image_collection match {
-        case Some(images) => {
-        @for(image <- images){
-        <img src="@image" width="48" height="48" title="Click to remove" data-toggle="tooltip" />
-        }
-        }
-        case None => {}
-        }
-
     </div>
 
     <div class="form-group">
@@ -68,13 +64,43 @@
         }
     </div>
 
+    <!--<span class="text-success" id="success_message"></span>-->
+
+    <div class="row @img_container_class" id="image_upload_wrapper">
+        <div class="col-md-12 text-primary" id="image_upload">
+            <label for="image">Upload images from trip</label>
+            <label class="upload-action-wrapper glyphicon glyphicon-upload">
+                <input type="file" name="image" id="image" style="display: none;" />
+            </label>
+
+            <div class="progress hide" id="upload_progress">
+                <div class="progress-bar progress-bar-striped active" role="progressbar" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100">
+                    <span class="sr-only">100% Complete</span>
+                </div>
+            </div>
+
+            <div id="trip_images">
+                @trip.image_collection match {
+                case Some(images) => {
+                @for(image <- images){
+                <img src="@image" width="48" height="48" title="Click to remove" data-toggle="tooltip" />
+                }
+                }
+                case None => {}
+                }
+            </div>
+        </div>
+
+    </div>
+
     <div class="form-group">
-        <input type="submit" class="btn btn-primary" value="Contribute" />
+        <button type="submit" class="btn btn-primary" data-loading-text="Adding..." id="add_trip_action">Contribute</button>
+        <button type="reset" class="btn btn-default hide" id="reset_trip_action">Add new trip</button>
+        <!--<img class="hide" src="/assets/images/spinner-loading.gif" id="add_trip_spinner" width="32" height="32" />-->
     </div>
 
     <div class="row">
-        <span class="text-success" id="success_message"></span>
-        <span class="text-danger" id="error_message">
+            <span class="text-danger" id="error_message">
                 @{
                 flash.get("error") match {
                     case Some(err) => <div class="text-error">{ err }</div>
