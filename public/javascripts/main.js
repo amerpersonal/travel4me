@@ -39,6 +39,7 @@ $(document).ready(function(){
                     $("#trips").html(trips_html);
                     $("#trips").css({"opacity" : "1"});
                     $("#search_spinner").addClass("hide");
+//                    $(".carousel").carousel({interval: 6000});
                 }
             })
         }, 350)
@@ -218,7 +219,6 @@ $(document).ready(function(){
 
     $("#trips").on("click", ".open-trip", function(){
         var trip_id = $(this).closest(".trip").attr("id");
-        console.log("trip_id: " + trip_id);
         $.ajax({
             url: "/trips/" + trip_id,
             type: "GET",

@@ -197,7 +197,15 @@ object Trip extends Search {
       fields.get("public").getValue.asInstanceOf[Boolean], startDate, endDate, user_id, Some(labels), Some(images), updated)
   }
 
-  def labels: Map[String, String] = Map("summer_vacation" -> "Summer Vacation", "city_travel" -> "City Travel", "antropology" -> "Antropology")
+  def labels: Map[String, String] = Map(
+    "summer_vacation" -> "Summer Vacation",
+    "city_travel" -> "City Travel",
+    "antropology" -> "Antropology",
+    "bussiness_trip" -> "Bussiness trip",
+    "winter_sports_holiday" -> "Winter sports holiday",
+    "religious_trip" -> "Religious trip",
+    "team_building" -> "Team building"
+  )
 
   def notEmpty(implicit r: Reads[String]): Reads[String] = Reads.filterNot(ValidationError("validate.error.unexpected.value", ""))(_.trim().eq(""))
 

@@ -142,7 +142,7 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
 
     try {
       val trips:Future[List[Trip]] = Trip.browse(client, query_body)
-      val f = akka.pattern.after(2.seconds, actorSystem.scheduler)(trips.map { r => Ok(Json.toJson(r))})
+      val f = akka.pattern.after(500.millis, actorSystem.scheduler)(trips.map { r => Ok(Json.toJson(r))})
       f
     }
     catch {

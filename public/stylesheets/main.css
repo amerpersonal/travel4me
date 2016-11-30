@@ -175,3 +175,7 @@ img.small-image {
     width: 130px;
     display: inline-block;
 }
+
+#check_labels input {
+    margin-right: 5px;
+}
