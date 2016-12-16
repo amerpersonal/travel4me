@@ -5,6 +5,7 @@ TODO:
 - use flickrimages that are biggest for 1st picture which is shown as thumnnail
 - test whole app
 - check dependencies and remove unnecessary
+- check execution contexts for ES and other things to improve performance
 - code refactoring to accommodate code standards
 - implement auth tokens API so app can be transfered completely to JSON API instead of using MVC
 - consider deployement options for app
