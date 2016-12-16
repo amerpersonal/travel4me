@@ -29,6 +29,8 @@ import play.api.Application
 
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
 
 class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorSystem: ActorSystem, app: Provider[Application])(implicit exec: ExecutionContext) extends ApplicationController(ef: PlayElasticFactory, cs: ClusterSetup) {
   val formDateFormatter: DateTimeFormatter = DateTimeFormat.forPattern("MM/dd/yyyy")
@@ -121,24 +123,9 @@ class TripsController @Inject()(cs: ClusterSetup, ef: PlayElasticFactory, actorS
   }
 
   def browse = Action.async { implicit request =>
-
-    // TODO: resursive function for converting jsobject to map
-    val query_body: Map[String, Object] = request.body.asJson match {
-      case Some(JsObject(fields)) => fields.map(kv => {
-        kv._1 match {
-          case "search" | "filter" | "sort" =>
-            def pairs_split_strip(pair: String): (String, String) = {
-              val res = pair.split(":").map(p => p.substring(1, p.length - 1))
-              (res(0), res(1))
-            }
-            val pairs = kv._2.toString().substring(1, kv._2.toString().length-1).split(",")
-            kv._1 -> pairs.map(pair => pairs_split_strip(pair)).toMap
-          case "size" | "from" => kv._1 -> kv._2
-          case _ => "search" -> kv._2.toString().substring(1, kv._2.toString().length-1).split(",").map(pair => (pair.split(":").toList.head, pair.split(":").toList.tail.head)).toMap
-        }
-      }).toMap
-      case _ => Map.empty
-    }
+    val str = request.body.asJson.get.toString()
+    val jsonBody = org.json4s.jackson.JsonMethods.parse(str)
+    val query_body: Map[String, Object] = jsonBody.extract[Map[String, Object]]
 
     try {
       val trips:Future[List[Trip]] = Trip.browse(client, query_body)

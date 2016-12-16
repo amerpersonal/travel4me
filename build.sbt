@@ -19,4 +19,5 @@ libraryDependencies += "com.evojam" %% "play-elastic4s" % "0.3.1"
 libraryDependencies += "com.github.tototoshi" %% "play-json4s-jackson" % "0.5.0"
 libraryDependencies += "com.github.tototoshi" %% "play-json4s-test-jackson" % "0.5.0" % "test"
 libraryDependencies += "org.mindrot" % "jbcrypt" % "0.3m"
+libraryDependencies += "org.json4s" %% "json4s-native" % "3.3.0"
 
