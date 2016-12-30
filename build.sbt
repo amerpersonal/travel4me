@@ -21,3 +21,4 @@ libraryDependencies += "com.github.tototoshi" %% "play-json4s-test-jackson" % "0
 libraryDependencies += "org.mindrot" % "jbcrypt" % "0.3m"
 libraryDependencies += "org.json4s" %% "json4s-native" % "3.3.0"
 
+herokuAppName in Compile := "peaceful-spire-72419"
