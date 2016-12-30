@@ -1,5 +1,6 @@
 import sbt.Keys._
 
+
 name := """travel4me"""
 
 version := "1.0-SNAPSHOT"
